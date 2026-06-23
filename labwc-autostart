@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+sleep 2
+
+# VNC with automatic restart (survives HDMI changes and disconnections)
+(while true; do
+  wayvnc 0.0.0.0 5900 2>> /tmp/wayvnc.log
+  sleep 3
+done) &
+
+sleep 2
+
+# Kiosk with VPN and temperature checks
+/home/pjcau/launch-kiosk.sh >> /tmp/kiosk.log 2>&1 &

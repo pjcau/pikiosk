@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="30">
+  <title>High Temperature Warning</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a0a00;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      gap: 30px;
+    }
+    .icon { font-size: 100px; }
+    h1 { font-size: 48px; color: #ff8800; }
+    p  { font-size: 24px; color: #aaa; max-width: 600px; line-height: 1.6; }
+    .temp {
+      font-size: 72px;
+      font-weight: bold;
+      color: #ff8800;
+    }
+    .retry { font-size: 18px; color: #555; margin-top: 10px; }
+    .pulse {
+      width: 20px; height: 20px;
+      background: #ff8800;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 1s infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes pulse {
+      0%   { transform: scale(1);   opacity: 1; }
+      50%  { transform: scale(1.5); opacity: 0.4; }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="icon">🌡️</div>
+  <h1>High Temperature Warning</h1>
+  <p>
+    The device is running too hot.<br>
+    Content has been paused to protect the hardware.
+  </p>
+  <p>Please ensure the device has adequate ventilation.</p>
+  <p class="retry">
+    <span class="pulse"></span>
+    Checking again in 30 seconds…
+  </p>
+</body>
+</html>
