@@ -22,6 +22,101 @@ Raspberry Pi 5 kiosk setup with VPN and remote VNC control.
 | Chromium | Kiosk browser |
 | WireGuard / ProtonVPN | VPN |
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph hw["HARDWARE"]
+        pi["🔴 Raspberry Pi 5<br/>64-bit"]
+        hdmi["📺 HDMI Output"]
+        sensor["🌡️ Temp Sensor"]
+        eth["🔌 Ethernet"]
+        wifi_hw["📶 Wi-Fi"]
+    end
+    
+    subgraph os["OPERATING SYSTEM"]
+        rpi_os["Raspberry Pi OS Lite<br/>Trixie 64-bit"]
+    end
+    
+    subgraph display_stack["DISPLAY STACK"]
+        drm["DRM/KMS<br/>fbdev emulation"]
+        lightdm["LightDM<br/>Auto-login"]
+        labwc["labwc<br/>Wayland"]
+    end
+    
+    subgraph kiosk_layer["KIOSK APPLICATION"]
+        checker["launch-kiosk.sh<br/>VPN + Temp Check"]
+        chromium["Chromium<br/>Kiosk Mode"]
+    end
+    
+    subgraph content["CONTENT DISPLAY"]
+        site["✅ Target Site"]
+        vpn_err["❌ VPN Error"]
+        temp_err["🔥 Temp Warning"]
+    end
+    
+    subgraph network["NETWORK & VPN"]
+        eth_conn["Ethernet"]
+        wifi_conn["Wi-Fi"]
+        vpn["🔒 WireGuard<br/>ProtonVPN<br/>System-level"]
+        internet["Internet"]
+    end
+    
+    subgraph remote["REMOTE ACCESS"]
+        wayvnc["wayvnc<br/>VNC Server :5900"]
+        client["VNC Client<br/>PC / iOS"]
+    end
+    
+    %% Hardware connections
+    pi --> hdmi
+    pi --> sensor
+    pi --> eth
+    pi --> wifi_hw
+    
+    %% Boot sequence
+    rpi_os --> drm
+    drm --> hdmi
+    rpi_os --> lightdm
+    lightdm --> labwc
+    labwc --> chromium
+    
+    %% Kiosk logic
+    sensor --> checker
+    vpn --> checker
+    checker --> chromium
+    chromium --> site
+    chromium --> vpn_err
+    chromium --> temp_err
+    
+    %% Network flow - BOTH connections go through VPN
+    eth --> eth_conn
+    wifi_hw --> wifi_conn
+    eth_conn --> vpn
+    wifi_conn --> vpn
+    vpn --> internet
+    chromium --> internet
+    
+    %% VNC access
+    labwc --> wayvnc
+    wayvnc --> client
+    
+    %% Styling
+    style hw fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style os fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style display_stack fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style kiosk_layer fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style content fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style network fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    style remote fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    
+    style pi fill:#ffcdd2
+    style chromium fill:#ffe0b2
+    style vpn fill:#a5d6a7,stroke:#1b5e20,stroke-width:3px
+    style eth_conn fill:#b2dfdb
+    style wifi_conn fill:#b2dfdb
+    style wayvnc fill:#e1bee7
+```
+
 ## Folder structure
 
 ```
