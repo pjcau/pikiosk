@@ -164,6 +164,22 @@ pikiosk/
 
 Edit `kiosk/launch-kiosk.sh` and update the `URL_SITE` variable at the top.
 
+## HDMI audio
+
+The kiosk forces the **HDMI audio sink to 100%** and unmutes it. This is handled by
+`set_hdmi_volume()` in `launch-kiosk.sh`, called at startup and every 30s in the monitor
+loop, so the volume stays at 100% after every reboot and after HDMI reconnects / profile
+changes. The sink is found **by name** (its `node.name` must contain `hdmi`) because
+PipeWire node IDs change on every boot — do not hardcode `wpctl set-volume <ID>`.
+
+```bash
+# Check current audio sinks and volumes
+wpctl status
+
+# Confirm HDMI was set (look for the "HDMI sink ... set to 100%" line)
+grep HDMI /tmp/kiosk.log
+```
+
 ## VNC access
 
 Connect with **TigerVNC** (PC) or **VNC Viewer** (iOS) to:
