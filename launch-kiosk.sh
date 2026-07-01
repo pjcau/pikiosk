@@ -15,6 +15,23 @@ vpn_up() {
   ip link show protonvpn 2>/dev/null | grep -q "UP"
 }
 
+# Force the HDMI audio sink to 100%. Node IDs change on every boot, so we look
+# up the sink by name (must contain "hdmi") instead of hardcoding an ID.
+set_hdmi_volume() {
+  local id name
+  for id in $(wpctl status 2>/dev/null | grep -oE '[0-9]+\. ' | grep -oE '[0-9]+'); do
+    name=$(wpctl inspect "$id" 2>/dev/null | grep -m1 'node.name' | grep -oiE 'alsa_output[^"]*')
+    if echo "$name" | grep -qi hdmi; then
+      wpctl set-volume "$id" 1.0 2>/dev/null
+      wpctl set-mute "$id" 0 2>/dev/null
+      echo "$(date): HDMI sink $id ($name) set to 100%"
+      return 0
+    fi
+  done
+  echo "$(date): no HDMI sink found (display connected?)"
+  return 1
+}
+
 temp_high() {
   local temp
   temp=$(vcgencmd measure_temp | grep -oE '[0-9]+' | head -1)
@@ -65,6 +82,9 @@ apply_state() {
   esac
 }
 
+# Force HDMI audio to 100% at startup
+set_hdmi_volume
+
 # Initial launch
 CURRENT_STATE=$(get_state)
 apply_state "$CURRENT_STATE"
@@ -72,6 +92,8 @@ apply_state "$CURRENT_STATE"
 # Monitoring loop — recheck every 30 seconds
 while true; do
   sleep 30
+  # Keep HDMI audio pinned at 100% (survives reconnects / profile changes)
+  set_hdmi_volume
   NEW_STATE=$(get_state)
   if [ "$NEW_STATE" != "$CURRENT_STATE" ]; then
     CURRENT_STATE="$NEW_STATE"
