@@ -15,7 +15,7 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | File | Ruolo |
 |---|---|
 | `install.sh` | Setup (run-in-place): installa solo i file `/etc` e aggancia l'autostart al clone |
-| `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
+| `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`recon`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
 | `kiosk/*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
 | `config/labwc-autostart` | Autostart labwc (VNC + kiosk); `__REPO_DIR__` sostituito da install.sh |
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
@@ -53,6 +53,16 @@ Richiamata all'avvio e nel loop (ogni 30s). Il match è sul **tipo** di device
 (`ethernet:connected` in `nmcli device status`), non sul nome (`eth0`/`end0`), e il
 WiFi viene spento **solo** se l'ethernet è davvero connessa. Se colleghi il cavo
 mentre sei su WiFi funzionante, il WiFi viene comunque staccato (ethernet ha priorità).
+
+## Stato `recon` (riconnessione) vs `vpn` (errore reale)
+
+Durante un cambio rete (es. stacchi il cavo e il WiFi si sta associando) la VPN
+cade per pochi secondi. Per non mostrare l'errore VPN rosso in quel buco, c'è lo
+stato **`recon`** (`kiosk/reconnecting.html`, pagina neutra "Riconnessione in
+corso"): si mostra quando manca l'uplink entro il debounce **oppure** quando la VPN
+è giù da poco (contatore `VPN_DOWN_COUNT < VPN_GRACE`, ~fino a 60s con rete stabile).
+Solo se la VPN resta giù **con uplink stabile** oltre la grace si passa a `vpn`
+(errore reale, es. IP ProtonVPN bloccato). `update_counters()` mantiene i contatori.
 
 ## Setup WiFi offline (`wifi-portal/` + stato `setup`)
 

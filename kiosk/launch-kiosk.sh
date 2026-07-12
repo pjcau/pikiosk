@@ -28,13 +28,19 @@ SETUP_FLAG="${SETUP_FLAG:-/tmp/kiosk-wifi-setup}"
 URL_SITE="https://www.bbc.co.uk/iplayer/live/bbcone"
 URL_VPN_ERROR="file://$SCRIPT_DIR/vpn-error.html"
 URL_TEMP_ERROR="file://$SCRIPT_DIR/temp-warning.html"
+URL_RECON="file://$SCRIPT_DIR/reconnecting.html"
 URL_SETUP="http://127.0.0.1:${PORTAL_PORT}"
 TEMP_THRESHOLD=80
 LOOP_INTERVAL=30
 # Consecutive no-uplink loops before auto-entering setup (debounce).
 NEED=$(( (SETUP_TIMEOUT + LOOP_INTERVAL - 1) / LOOP_INTERVAL ))
+# Loops the VPN may stay down (with a stable uplink) before we call it a real
+# failure. Until then we show the neutral "reconnecting" page instead of the VPN
+# error — this covers the brief Ethernet→WiFi handover gap.
+VPN_GRACE=2
 CURRENT_STATE=""
 NO_NET_COUNT=0
+VPN_DOWN_COUNT=0
 
 vpn_up() {
   ip link show protonvpn 2>/dev/null | grep -q "UP"
@@ -137,8 +143,14 @@ compute_state() {
     # Auto-trigger: no uplink for long enough (debounce).
     if ! have_network && [ "$NO_NET_COUNT" -ge "$NEED" ]; then echo "setup"; return; fi
   fi
-  if ! have_network; then echo "vpn"; return; fi   # no uplink but within debounce
-  vpn_up && echo "ok" || echo "vpn"
+  # No uplink but within the setup debounce → transient, show "reconnecting".
+  if ! have_network; then echo "recon"; return; fi
+  if ! vpn_up; then
+    # Uplink present but VPN down: brief → reconnecting, persistent → real error.
+    [ "$VPN_DOWN_COUNT" -lt "$VPN_GRACE" ] && { echo "recon"; return; }
+    echo "vpn"; return
+  fi
+  echo "ok"
 }
 
 launch_chromium() {
@@ -168,6 +180,10 @@ apply_state() {
       echo "$(date): no network → WiFi setup portal"
       enter_setup
       ;;
+    recon)
+      echo "$(date): network/VPN in transition → showing reconnecting page"
+      launch_chromium "$URL_RECON"
+      ;;
     vpn)
       echo "$(date): VPN not active → showing VPN error page"
       launch_chromium "$URL_VPN_ERROR"
@@ -179,10 +195,21 @@ apply_state() {
   esac
 }
 
+# Update the uplink / VPN-down counters used by compute_state's debounce & grace.
+update_counters() {
+  if have_network; then
+    NO_NET_COUNT=0
+    if vpn_up; then VPN_DOWN_COUNT=0; else VPN_DOWN_COUNT=$((VPN_DOWN_COUNT + 1)); fi
+  else
+    NO_NET_COUNT=$((NO_NET_COUNT + 1))
+    VPN_DOWN_COUNT=0   # no uplink → not a "VPN persistently down" case
+  fi
+}
+
 # ── Startup ───────────────────────────────────────────────────────────────────
 set_hdmi_volume
 prefer_ethernet
-have_network && NO_NET_COUNT=0 || NO_NET_COUNT=$((NO_NET_COUNT + 1))
+update_counters
 CURRENT_STATE=$(compute_state)
 apply_state "$CURRENT_STATE"
 
@@ -192,12 +219,8 @@ while true; do
   # Keep HDMI audio pinned at 100% (survives reconnects / profile changes).
   set_hdmi_volume
 
-  # Track uplink presence for the setup debounce.
-  if have_network; then
-    NO_NET_COUNT=0
-  else
-    NO_NET_COUNT=$((NO_NET_COUNT + 1))
-  fi
+  # Track uplink presence and VPN state for the debounce / reconnect grace.
+  update_counters
 
   # Ethernet/WiFi preference — but never while in setup (would kill the hotspot).
   [ "$CURRENT_STATE" != "setup" ] && prefer_ethernet

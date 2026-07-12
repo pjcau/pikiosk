@@ -273,12 +273,17 @@ The check matches NetworkManager's device **type** (`ethernet:connected`), not a
 fixed interface name (`eth0`/`end0`), and only ever disables WiFi when Ethernet is
 truly connected — so it never cuts off a WiFi-only connection.
 
+During the few seconds of an Ethernet→WiFi handover the VPN is briefly down; instead
+of the red VPN-error page the kiosk shows a neutral **"Reconnecting…"** page
+(`reconnecting.html`, the `recon` state). The VPN-error page appears only if the VPN
+stays down with a **stable** uplink (e.g. the ProtonVPN IP got blocked).
+
 ## WiFi setup when offline (`setup` state)
 
 VNC can't help configure the network because it needs a network. Instead, when
 there's **no physical uplink** (no Ethernet, no WiFi) for ~60s — or when you force
 it with `touch /tmp/kiosk-wifi-setup` — `launch-kiosk.sh` enters the **`setup`**
-state (priority `temp` > `setup` > `vpn` > `ok`):
+state (priority `temp` > `setup` > `recon` > `vpn` > `ok`):
 
 1. Starts the local portal (`wifi-portal/server.py`) and, **single-radio aware**,
    scans for networks **before** bringing up the access point (the live list is
