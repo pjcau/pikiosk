@@ -38,6 +38,23 @@ temp_high() {
   [ "$temp" -ge "$TEMP_THRESHOLD" ]
 }
 
+# Prefer Ethernet over WiFi. If Ethernet is connected, turn WiFi off (more stable,
+# less interference); if Ethernet is down/absent, turn WiFi back on so the Pi can
+# rejoin a known network (or later enter WiFi setup). We match NetworkManager's
+# device TYPE, not a fixed name (eth0/end0), and only ever disable WiFi when
+# Ethernet is truly connected — so we never cut off a WiFi-only connection.
+prefer_ethernet() {
+  if nmcli -t -f TYPE,STATE device status 2>/dev/null | grep -q '^ethernet:connected'; then
+    if [ "$(nmcli radio wifi 2>/dev/null)" = "enabled" ]; then
+      nmcli radio wifi off 2>/dev/null && echo "$(date): Ethernet connected → WiFi off"
+    fi
+  else
+    if [ "$(nmcli radio wifi 2>/dev/null)" != "enabled" ]; then
+      nmcli radio wifi on 2>/dev/null && echo "$(date): Ethernet absent → WiFi on"
+    fi
+  fi
+}
+
 get_state() {
   if temp_high; then
     echo "temp"
@@ -85,6 +102,9 @@ apply_state() {
 # Force HDMI audio to 100% at startup
 set_hdmi_volume
 
+# Prefer Ethernet: disable WiFi if the cable is in, enable it otherwise
+prefer_ethernet
+
 # Initial launch
 CURRENT_STATE=$(get_state)
 apply_state "$CURRENT_STATE"
@@ -94,6 +114,9 @@ while true; do
   sleep 30
   # Keep HDMI audio pinned at 100% (survives reconnects / profile changes)
   set_hdmi_volume
+  # Re-evaluate Ethernet vs WiFi: if the cable was just plugged in, drop WiFi;
+  # if it was unplugged, bring WiFi back so the Pi can reconnect.
+  prefer_ethernet
   NEW_STATE=$(get_state)
   if [ "$NEW_STATE" != "$CURRENT_STATE" ]; then
     CURRENT_STATE="$NEW_STATE"

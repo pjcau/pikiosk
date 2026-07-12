@@ -241,20 +241,29 @@ ip link show eth0 | grep ether
 4. Enable **"Always assign this network device the same IPv4 address"**
 5. Save
 
-**Disable WiFi permanently** (persists across reboots):
-```bash
-sudo nmcli radio wifi off
-```
+### Automatic Ethernet preference
 
-**Re-enable WiFi if needed:**
-```bash
-sudo nmcli radio wifi on
-```
+`launch-kiosk.sh` runs `prefer_ethernet()` at startup and every 30s in the monitor
+loop, so you don't have to toggle WiFi by hand:
 
-**Check radio status:**
+- **Ethernet connected → WiFi is turned off automatically** — even if WiFi was
+  already working, plugging in the cable switches to Ethernet and drops WiFi
+  (more stable, less interference).
+- **Ethernet down/absent → WiFi is turned back on automatically** — so the Pi can
+  rejoin a known network or later enter WiFi setup.
+
+The check matches NetworkManager's device **type** (`ethernet:connected`), not a
+fixed interface name (`eth0`/`end0`), and only ever disables WiFi when Ethernet is
+truly connected — so it never cuts off a WiFi-only connection.
+
+**Manual override** (still available if you want to force it):
 ```bash
-nmcli radio
+sudo nmcli radio wifi off   # force WiFi off
+sudo nmcli radio wifi on    # force WiFi on
+nmcli radio                 # check radio status
 ```
+Note: on the next loop `prefer_ethernet()` may switch it back according to the rule
+above.
 
 ## Notes
 
