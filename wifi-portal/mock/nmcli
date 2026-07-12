@@ -122,6 +122,51 @@ case "$join_args" in
     echo "disconnected (mock)"
     ;;
 
+  *"dev wifi rescan"*|*"device wifi rescan"*)
+    echo "rescan (mock)"
+    ;;
+
+  *"connection delete"*|*"con delete"*)
+    echo "deleted (mock)"   # best effort, come il vero nmcli
+    ;;
+
+  *"connection add"*|*"con add"*)
+    # forma: connection add type wifi con-name X ssid X wifi-sec.psk PASS
+    target_ssid=""; target_pw=""; prev=""
+    for a in "$@"; do
+      case "$prev" in
+        ssid) target_ssid="$a" ;;
+        wifi-sec.psk|802-11-wireless-security.psk) target_pw="$a" ;;
+      esac
+      prev="$a"
+    done
+    for n in "${NETWORKS[@]}"; do
+      IFS='|' read -r ssid signal sec pw <<< "$n"
+      if [ "$ssid" = "$target_ssid" ]; then
+        if [ -z "$pw" ] || [ "$pw" = "$target_pw" ]; then
+          set_kv profile "$ssid"
+          echo "Connection '$ssid' successfully added."
+          exit 0
+        fi
+        echo "Error: 802-11-wireless-security.psk: property is invalid." >&2
+        exit 1
+      fi
+    done
+    echo "Error: unknown SSID '$target_ssid'." >&2
+    exit 1
+    ;;
+
+  *"connection up"*|*"con up"*)
+    prev=""; target=""
+    for a in "$@"; do [ "$prev" = "up" ] && target="$a"; prev="$a"; done
+    if [ "$target" = "$(get profile)" ] && [ -n "$target" ]; then
+      set_kv connected "$target"; set_kv hotspot off
+      echo "Connection successfully activated ($target)."
+    else
+      echo "Error: unknown connection '$target'." >&2; exit 1
+    fi
+    ;;
+
   *)
     echo "mock nmcli: comando non gestito: $join_args" >&2
     exit 2

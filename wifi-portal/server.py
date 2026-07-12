@@ -17,10 +17,12 @@ Bind di default su 0.0.0.0 cosi' la STESSA istanza serve sia lo schermo del Pi
 import json
 import os
 import subprocess
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 NMCLI = os.environ.get("NMCLI", "nmcli")
 HERE = os.path.dirname(os.path.abspath(__file__))
+HOTSPOT_SH = os.path.join(HERE, "hotspot.sh")
 PORT = int(os.environ.get("PORT", os.environ.get("PORTAL_PORT", "8080")))
 HOST = os.environ.get("HOST", os.environ.get("PORTAL_HOST", "0.0.0.0"))
 # Credenziali dell'hotspot di setup: servono alla pagina per costruire il QR di
@@ -112,12 +114,51 @@ def active_ssid():
     return None
 
 
-def connect(ssid, password):
+def _hotspot(action):
+    """up/down the setup hotspot via hotspot.sh (best effort)."""
+    try:
+        subprocess.run([HOTSPOT_SH, action], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def _connect_simple(ssid, password):
     args = ["dev", "wifi", "connect", ssid]
     if password:
         args += ["password", password]
     rc, out, err = nmcli(*args, timeout=45)
     return rc == 0, (out or err or "").strip()
+
+
+def _connect_explicit(ssid, password):
+    """Build a WPA-PSK profile explicitly. Fixes '802-11-wireless-security.key-mgmt
+    property is missing', which happens when the target AP isn't in the live scan
+    (e.g. right after the single-radio was busy as an access point)."""
+    nmcli("connection", "delete", ssid)  # remove any half-made profile
+    rc, out, err = nmcli(
+        "connection", "add", "type", "wifi", "con-name", ssid, "ssid", ssid,
+        "wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password, timeout=25,
+    )
+    if rc != 0:
+        return False, (err or out or "").strip()
+    rc, out, err = nmcli("connection", "up", ssid, timeout=45)
+    return rc == 0, (out or err or "").strip()
+
+
+def connect(ssid, password, security="WPA2"):
+    """Connect to a WiFi network. Single-radio aware: tears down the setup hotspot
+    first so the radio is free to associate as a station; on failure it brings the
+    hotspot back up so the user can retry from the portal."""
+    _hotspot("down")               # free the radio from AP mode
+    nmcli("radio", "wifi", "on")
+    nmcli("dev", "wifi", "rescan", timeout=20)  # refresh scan now that the radio is free
+    time.sleep(4)
+    ok, msg = _connect_simple(ssid, password)
+    if not ok and password and (security or "").upper() not in ("", "OPEN"):
+        ok, msg = _connect_explicit(ssid, password)  # explicit key-mgmt fallback
+    if not ok:
+        _hotspot("up")             # restore the portal AP for a retry
+    return ok, msg
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -179,9 +220,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"ok": False, "message": "JSON non valido"})
         ssid = (payload.get("ssid") or "").strip()
         password = payload.get("password") or ""
+        security = payload.get("security") or "WPA2"
         if not ssid:
             return self._json(400, {"ok": False, "message": "SSID mancante"})
-        ok, msg = connect(ssid, password)
+        ok, msg = connect(ssid, password, security)
         if ok:
             # Connessione riuscita: consuma il flag manuale così launch-kiosk esce
             # dallo stato setup (e spegne l'hotspot) al giro successivo.

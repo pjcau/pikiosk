@@ -174,7 +174,7 @@ function selectNetwork(n, row) {
   selected = n;
   hideStatus();
   const open = n.security === 'OPEN';
-  if (open) { doConnect(n.ssid, ''); return; }
+  if (open) { doConnect(n.ssid, '', n.security); return; }
   const tpl = document.getElementById('pwTemplate').content.cloneNode(true);
   row.after(tpl);
   const box = row.nextElementSibling;
@@ -185,18 +185,19 @@ function selectNetwork(n, row) {
   box.querySelector('.cancel').addEventListener('click', () => {
     box.remove(); row.classList.remove('sel'); selected = null;
   });
-  box.querySelector('.connect').addEventListener('click', () => doConnect(n.ssid, pw.value));
-  pw.addEventListener('keydown', e => { if (e.key === 'Enter') doConnect(n.ssid, pw.value); });
+  box.querySelector('.connect').addEventListener('click', () => doConnect(n.ssid, pw.value, n.security));
+  pw.addEventListener('keydown', e => { if (e.key === 'Enter') doConnect(n.ssid, pw.value, n.security); });
   pw.focus();
 }
 
-async function doConnect(ssid, password) {
+async function doConnect(ssid, password, security) {
   document.querySelectorAll('.connect').forEach(b => b.disabled = true);
-  showStatus('info', `Connessione a "${ssid}"…`);
+  // Single-radio: connecting closes the hotspot, so a phone will drop off here.
+  showStatus('info', `Connessione a "${ssid}"… l'hotspot si chiude, potresti perdere la rete del telefono. Guarda lo schermo del kiosk.`);
   try {
     const r = await fetch('/api/connect', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ ssid, password })
+      body: JSON.stringify({ ssid, password, security })
     });
     const res = await r.json();
     if (res.ok) {

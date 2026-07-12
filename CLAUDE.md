@@ -72,7 +72,7 @@ col mock** senza toccare la rete vera. Componenti:
 
 | File | Ruolo |
 |---|---|
-| `server.py` | Backend HTTP stdlib: `/api/scan`, `/api/connect`, `/api/status`, `/api/hotspot/info`; chiama sempre `$NMCLI`; cache scansione + consuma `SETUP_FLAG` al connect |
+| `server.py` | Backend HTTP stdlib: `/api/scan`, `/api/connect`, `/api/status`, `/api/hotspot/info`; chiama sempre `$NMCLI`; cache scansione, **connect single-radio** (spegne l'hotspot → si connette → lo riaccende se fallisce, con fallback `key-mgmt wpa-psk`), consuma `SETUP_FLAG` al connect |
 | `wifi-setup.html` | Pagina: QR di join hotspot + QR "apri pagina" + lista WiFi interattiva (QR nascosti sul telefono) |
 | `hotspot.sh` | `up`/`down`/`status` dell'hotspot di setup `pikiosk-setup` |
 | `net-prefer.sh` | Versione standalone testabile della logica ethernet→WiFi (stessa di `prefer_ethernet()`) |
@@ -91,6 +91,14 @@ prima di alzare l'AP** (single-radio: la radio si occupa e la scan live torna vu
 si serve la cache), poi `hotspot.sh up` e Chromium sulla pagina. Si esce quando torna
 un uplink reale (o al connect riuscito, che rimuove `$SETUP_FLAG`) → `leave_setup()`
 spegne l'hotspot. `prefer_ethernet()` **non** viene chiamata in `setup` (romperebbe l'AP).
+
+**Connect single-radio** (in `server.py`): con una sola antenna non si può fare AP e
+client insieme. Al `/api/connect` il backend **spegne l'hotspot** (`hotspot.sh down`),
+riaccende la radio, `rescan`, poi `nmcli dev wifi connect`; se fallisce per
+`802-11-wireless-security.key-mgmt: property is missing` prova col profilo esplicito
+(`connection add ... wifi-sec.key-mgmt wpa-psk`), e se non riesce **riaccende l'hotspot**
+per far riprovare. Nota: se configuri dal telefono, alla conferma l'hotspot cade e il
+telefono si scollega — l'esito si vede sullo schermo HDMI del kiosk.
 
 Da fare: captive-portal **auto-open** (DNS-hijack + bind porta 80) per aprire la pagina
 sul telefono senza il secondo QR.
