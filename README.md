@@ -7,6 +7,8 @@ Raspberry Pi 5 kiosk setup with VPN and remote VNC control.
 - Displays a target website in full-screen kiosk mode on HDMI
 - Routes all traffic through **ProtonVPN WireGuard**
 - Shows an error page if the VPN is down or temperature exceeds 80°C
+- When there's **no network**, opens a `pikiosk-setup` WiFi hotspot so you can pick
+  a network from your phone (or the on-screen list) — no VNC/internet needed
 - Recovers automatically when conditions are restored
 - Remote control via **VNC** (TigerVNC on PC, VNC Viewer on iOS)
 - SSH always available for management
@@ -129,12 +131,27 @@ pikiosk/
 │   ├── vpn-error.html      # Shown when VPN is down
 │   └── temp-warning.html   # Shown when temperature >= 80°C
 ├── config/
-│   ├── labwc-autostart     # ~/.config/labwc/autostart
+│   ├── labwc-autostart     # ~/.config/labwc/autostart (points at the clone)
 │   ├── lightdm-autologin.conf  # /etc/lightdm/lightdm.conf.d/
 │   ├── drm.conf            # /etc/modprobe.d/drm.conf
 │   └── wireguard-template.conf  # Template for /etc/wireguard/protonvpn.conf
-└── scripts/
-    └── monitor.sh          # Live power and temperature monitor
+├── scripts/
+│   └── monitor.sh          # Live power and temperature monitor
+└── wifi-portal/            # Offline WiFi setup (hotspot + captive page)
+    ├── server.py           # HTTP backend driving nmcli
+    ├── wifi-setup.html     # QR auto-join + interactive network list
+    ├── hotspot.sh          # up/down/status of the pikiosk-setup hotspot
+    ├── net-prefer.sh       # standalone ethernet-preference logic
+    ├── portal.conf         # hotspot SSID/pass, port, timeout
+    ├── run-local.sh        # run the portal locally with the mock
+    └── mock/nmcli          # fake nmcli for local testing
+```
+
+**Run-in-place:** scripts run directly from the clone — nothing is copied into the
+home dir. `install.sh` only installs the `/etc` files (LightDM, DRM, WireGuard) and
+points the labwc autostart at this clone's `kiosk/launch-kiosk.sh`. To update later:
+```bash
+cd pikiosk && git pull    # then reboot, or restart labwc
 ```
 
 ## Quick setup
@@ -255,6 +272,31 @@ loop, so you don't have to toggle WiFi by hand:
 The check matches NetworkManager's device **type** (`ethernet:connected`), not a
 fixed interface name (`eth0`/`end0`), and only ever disables WiFi when Ethernet is
 truly connected — so it never cuts off a WiFi-only connection.
+
+## WiFi setup when offline (`setup` state)
+
+VNC can't help configure the network because it needs a network. Instead, when
+there's **no physical uplink** (no Ethernet, no WiFi) for ~60s — or when you force
+it with `touch /tmp/kiosk-wifi-setup` — `launch-kiosk.sh` enters the **`setup`**
+state (priority `temp` > `setup` > `vpn` > `ok`):
+
+1. Starts the local portal (`wifi-portal/server.py`) and, **single-radio aware**,
+   scans for networks **before** bringing up the access point (the live list is
+   cached and served while the AP is up).
+2. Brings up a WiFi hotspot **`pikiosk-setup`** (`wifi-portal/hotspot.sh up`).
+3. Shows the setup page full-screen on HDMI: a **QR to auto-join** the hotspot, a
+   **QR to open** the portal (`http://10.42.0.1:8080`), and an **interactive list**
+   of nearby networks usable with a keyboard.
+4. On your phone: join the hotspot, open the page, pick a network, enter its
+   password. The Pi runs `nmcli dev wifi connect`; on success the hotspot is torn
+   down and the kiosk returns to the VPN → site flow.
+
+Settings (hotspot SSID/password, port, timeout) live in `wifi-portal/portal.conf`.
+The whole flow is testable on a PC with the mock: `cd wifi-portal && ./run-local.sh`.
+
+> Captive-portal **auto-open** (so the page pops up automatically after joining,
+> without scanning the second QR) needs a DNS-hijack + port-80 bind and is a
+> planned follow-up; for now the second QR / the `10.42.0.1` URL opens it.
 
 **Manual override** (still available if you want to force it):
 ```bash

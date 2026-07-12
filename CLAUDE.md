@@ -14,15 +14,18 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 
 | File | Ruolo |
 |---|---|
-| `install.sh` | Setup automatico |
-| `launch-kiosk.sh` | Loop VPN + temperatura, avvia Chromium, forza audio HDMI a 100%, preferisce l'ethernet (spegne/accende il WiFi) |
-| `labwc-autostart` | Autostart della sessione labwc (VNC + kiosk) |
-| `monitor.sh` | Monitor live di potenza e temperatura |
-| `*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
-| `*.conf` | Config di LightDM, DRM, WireGuard |
+| `install.sh` | Setup (run-in-place): installa solo i file `/etc` e aggancia l'autostart al clone |
+| `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
+| `kiosk/*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
+| `config/labwc-autostart` | Autostart labwc (VNC + kiosk); `__REPO_DIR__` sostituito da install.sh |
+| `config/*.conf` | Config di LightDM, DRM, WireGuard |
+| `scripts/monitor.sh` | Monitor live di potenza e temperatura |
+| `wifi-portal/` | Setup WiFi offline (hotspot + pagina) — vedi sezione dedicata |
 
-> Nota: i path nel repo sono flat (root), mentre il README descrive una struttura a
-> cartelle (`kiosk/`, `config/`, `scripts/`). Gli script deployati usano `/home/pjcau/...`.
+> **Struttura a cartelle** (`kiosk/ config/ scripts/ wifi-portal/`): repo, README e
+> install.sh combaciano. **Run-in-place**: gli script girano direttamente dal clone,
+> `git pull` aggiorna tutto (niente copie in `/home/...`). `launch-kiosk.sh` è
+> auto-locante (`SCRIPT_DIR`/`REPO_DIR`), niente path hardcoded.
 
 ## Convenzioni di lavoro (IMPORTANTI)
 
@@ -51,22 +54,33 @@ Richiamata all'avvio e nel loop (ogni 30s). Il match è sul **tipo** di device
 WiFi viene spento **solo** se l'ethernet è davvero connessa. Se colleghi il cavo
 mentre sei su WiFi funzionante, il WiFi viene comunque staccato (ethernet ha priorità).
 
-## Prototipo wifi-portal (in sviluppo)
+## Setup WiFi offline (`wifi-portal/` + stato `setup`)
 
-`wifi-portal/` è il prototipo per configurare il WiFi quando il Pi è offline (VNC non
-serve: richiede già la rete). Testabile **in locale col mock** senza toccare la rete
-vera. Componenti:
+`wifi-portal/` configura il WiFi quando il Pi è offline (VNC non serve: richiede già
+la rete). **Integrato** in `launch-kiosk.sh` come stato `setup`. Testabile **in locale
+col mock** senza toccare la rete vera. Componenti:
 
 | File | Ruolo |
 |---|---|
-| `server.py` | Backend HTTP stdlib: `/api/scan`, `/api/connect`, `/api/status`, `/api/hotspot/info`; chiama sempre `$NMCLI` |
-| `wifi-setup.html` | Pagina: QR di auto-join hotspot + lista WiFi interattiva (QR nascosto sul telefono) |
+| `server.py` | Backend HTTP stdlib: `/api/scan`, `/api/connect`, `/api/status`, `/api/hotspot/info`; chiama sempre `$NMCLI`; cache scansione + consuma `SETUP_FLAG` al connect |
+| `wifi-setup.html` | Pagina: QR di join hotspot + QR "apri pagina" + lista WiFi interattiva (QR nascosti sul telefono) |
 | `hotspot.sh` | `up`/`down`/`status` dell'hotspot di setup `pikiosk-setup` |
 | `net-prefer.sh` | Versione standalone testabile della logica ethernet→WiFi (stessa di `prefer_ethernet()`) |
-| `portal.conf` | SSID/password hotspot, porta, timeout setup (60s) |
-| `mock/nmcli` | `nmcli` finto: reti/connect/hotspot/ethernet simulati; comando extra `mock-eth up|down` |
+| `portal.conf` | SSID/password hotspot, gateway, porta, timeout (60s), `SETUP_FLAG`, cache |
+| `mock/nmcli` | `nmcli` finto: reti/connect/hotspot/ethernet/radio simulati; comando extra `mock-eth up|down` |
 | `run-local.sh` | Avvia il portal in locale col mock, sceglie una porta libera |
-| `vendor/qrcode.js` | Libreria QR (Kazuhiko Arase) per il QR di auto-join |
+| `vendor/qrcode.js` | Libreria QR (Kazuhiko Arase) per i QR |
 
 Regola invariata: `$NMCLI` punta al mock in locale, a `nmcli` vero sul Pi — stesso
-codice ovunque. Non ancora integrato nel flusso `launch-kiosk.sh` (stato `setup`).
+codice ovunque.
+
+**Flusso stato `setup`** (in `launch-kiosk.sh`): si entra quando manca l'uplink
+fisico per ~60s (`have_network` = ethernet o WiFi *station*, non l'hotspot) **oppure**
+con `touch $SETUP_FLAG`. `enter_setup()` accende il WiFi, avvia il portal, **scansiona
+prima di alzare l'AP** (single-radio: la radio si occupa e la scan live torna vuota →
+si serve la cache), poi `hotspot.sh up` e Chromium sulla pagina. Si esce quando torna
+un uplink reale (o al connect riuscito, che rimuove `$SETUP_FLAG`) → `leave_setup()`
+spegne l'hotspot. `prefer_ethernet()` **non** viene chiamata in `setup` (romperebbe l'AP).
+
+Da fare: captive-portal **auto-open** (DNS-hijack + bind porta 80) per aprire la pagina
+sul telefono senza il secondo QR.
