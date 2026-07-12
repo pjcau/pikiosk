@@ -1,0 +1,7 @@
+# Segreti: la config WireGuard reale non va mai committata (vedi CLAUDE.md).
+config/wireguard.conf
+
+# Stato/cache generati a runtime
+/tmp/
+*.log
+wifi-portal/mock/state

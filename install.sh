@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# install.sh — Automated pikiosk setup for Raspberry Pi 5
+# install.sh — pikiosk setup for Raspberry Pi 5 (run-in-place model).
+#
+# Clone the repo anywhere, run this once. Scripts run DIRECTLY from the clone —
+# nothing is copied to the home dir — so `git pull` updates everything instantly.
+# Only files that MUST live under /etc (LightDM, DRM, WireGuard) are installed;
+# the labwc autostart is pointed at this clone's kiosk/launch-kiosk.sh.
+#
 # Run as normal user (not root). Uses sudo where needed.
 
 set -e
@@ -9,9 +15,9 @@ USER_NAME="$(whoami)"
 HOME_DIR="/home/${USER_NAME}"
 
 echo "======================================"
-echo " pikiosk installer"
+echo " pikiosk installer (run-in-place)"
 echo " User: ${USER_NAME}"
-echo " Home: ${HOME_DIR}"
+echo " Repo: ${REPO_DIR}"
 echo "======================================"
 echo ""
 
@@ -28,7 +34,8 @@ sudo apt install -y \
   chromium \
   unclutter \
   wireguard resolvconf \
-  git curl
+  git curl \
+  python3 network-manager
 
 # ── 3. User groups ────────────────────────────────────────────────────────────
 echo "[3/8] Adding user to groups..."
@@ -41,8 +48,6 @@ sudo cp "${REPO_DIR}/config/drm.conf" /etc/modprobe.d/drm.conf
 # ── 5. LightDM autologin ─────────────────────────────────────────────────────
 echo "[5/8] Configuring LightDM autologin..."
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
-
-# Replace placeholder with actual username
 sed "s/YOUR_USER/${USER_NAME}/g" \
   "${REPO_DIR}/config/lightdm-autologin.conf" \
   | sudo tee /etc/lightdm/lightdm.conf.d/01-autologin.conf > /dev/null
@@ -59,49 +64,40 @@ else
   echo "  Copy your ProtonVPN WireGuard config to config/wireguard.conf and re-run."
 fi
 
-# ── 7. Kiosk files ───────────────────────────────────────────────────────────
-echo "[7/8] Installing kiosk files..."
+# ── 7. Wire autostart to the clone (run-in-place) ────────────────────────────
+echo "[7/8] Wiring labwc autostart to ${REPO_DIR}/kiosk/launch-kiosk.sh ..."
+# Make the in-repo scripts executable (git may not preserve the bit on all setups).
+chmod +x "${REPO_DIR}/kiosk/launch-kiosk.sh" \
+         "${REPO_DIR}/scripts/monitor.sh" \
+         "${REPO_DIR}/wifi-portal/"*.sh \
+         "${REPO_DIR}/wifi-portal/mock/nmcli" 2>/dev/null || true
 
-# Replace placeholder username in launch-kiosk.sh
-sed "s|/home/pjcau|${HOME_DIR}|g" \
-  "${REPO_DIR}/kiosk/launch-kiosk.sh" > "${HOME_DIR}/launch-kiosk.sh"
-chmod +x "${HOME_DIR}/launch-kiosk.sh"
-
-# Error pages
-cp "${REPO_DIR}/kiosk/vpn-error.html"   "${HOME_DIR}/vpn-error.html"
-cp "${REPO_DIR}/kiosk/temp-warning.html" "${HOME_DIR}/temp-warning.html"
-
-# Monitor script
-cp "${REPO_DIR}/scripts/monitor.sh" "${HOME_DIR}/monitor.sh"
-chmod +x "${HOME_DIR}/monitor.sh"
-
-# labwc autostart
+# Point the autostart at THIS clone (no copies in home → git pull updates all).
 mkdir -p "${HOME_DIR}/.config/labwc"
-sed "s|/home/pjcau|${HOME_DIR}|g" \
+sed "s|__REPO_DIR__|${REPO_DIR}|g" \
   "${REPO_DIR}/config/labwc-autostart" > "${HOME_DIR}/.config/labwc/autostart"
 chmod +x "${HOME_DIR}/.config/labwc/autostart"
 
-# ── 8. Disable WiFi (use Ethernet only) ──────────────────────────────────────
-echo "[8/9] Disabling WiFi (Ethernet only)..."
-sudo nmcli radio wifi off
-echo "  WiFi disabled. Find Ethernet MAC with: ip link show eth0 | grep ether"
-echo "  Assign a fixed IP in your router using that MAC address."
-
-# ── 9. Done ───────────────────────────────────────────────────────────────────
-echo "[9/9] Done!"
+# ── 8. Done ───────────────────────────────────────────────────────────────────
+echo "[8/8] Done!"
 echo ""
 echo "======================================"
-echo " Setup complete. Next steps:"
+echo " Setup complete."
 echo ""
-echo " 1. Find Ethernet MAC: ip link show eth0 | grep ether"
-echo " 2. Assign fixed IP in your router using that MAC"
-echo " 3. Reboot: sudo reboot"
+echo " Networking: WiFi is managed automatically — Ethernet is preferred, WiFi"
+echo " is turned off when the cable is in and back on when it's out. When there's"
+echo " no network, the kiosk opens a 'pikiosk-setup' hotspot for phone setup."
+echo ""
+echo " Next steps:"
+echo "   1. (Optional) fixed IP: ip link show | grep -A1 ether"
+echo "   2. Reboot: sudo reboot"
 echo ""
 echo " After reboot:"
 echo "   sudo wg show        → VPN status"
 echo "   curl ifconfig.me    → should show VPN server IP"
+echo "   tail -f /tmp/kiosk.log"
 echo ""
-echo " VNC access: PI_IP:5900"
+echo " Update later:  cd ${REPO_DIR} && git pull   (then reboot or restart labwc)"
+echo " VNC access:    PI_IP:5900"
 echo "======================================"
 echo ""
-

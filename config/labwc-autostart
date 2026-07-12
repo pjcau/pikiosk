@@ -9,5 +9,6 @@ done) &
 
 sleep 2
 
-# Kiosk with VPN and temperature checks
-/home/pjcau/launch-kiosk.sh >> /tmp/kiosk.log 2>&1 &
+# Kiosk with VPN, temperature and WiFi-setup checks.
+# __REPO_DIR__ is replaced by install.sh with the actual clone path (run-in-place).
+__REPO_DIR__/kiosk/launch-kiosk.sh >> /tmp/kiosk.log 2>&1 &
