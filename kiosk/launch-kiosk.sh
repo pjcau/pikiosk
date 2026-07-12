@@ -134,8 +134,17 @@ leave_setup() {
 # Decide the current state. Uses globals CURRENT_STATE and NO_NET_COUNT.
 compute_state() {
   if temp_high; then echo "temp"; return; fi
-  # Manual override forces setup until server.py consumes the flag on connect.
-  if [ -f "$SETUP_FLAG" ]; then echo "setup"; return; fi
+  # Manual override forces setup — but only while there is NO real uplink. If
+  # Ethernet (or a real WiFi station) is present, setup makes no sense: keeping
+  # the hotspot up next to a working uplink is the "three states at once" mess
+  # (ethernet + hotspot + VPN). So a genuine uplink wins and clears the stale flag.
+  if [ -f "$SETUP_FLAG" ]; then
+    if have_network; then
+      rm -f "$SETUP_FLAG"; echo "$(date): real uplink present → dropping stale setup flag" >&2
+    else
+      echo "setup"; return
+    fi
+  fi
   if [ "$CURRENT_STATE" = "setup" ]; then
     # Stay in setup until a real uplink returns.
     have_network || { echo "setup"; return; }
