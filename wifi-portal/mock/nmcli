@@ -112,6 +112,14 @@ case "$join_args" in
     true  # il vero nmcli esce 0 qui; senza questo l'ultimo test poteva dare exit 1
     ;;
 
+  *"connection show"*|*"con show"*)
+    # Elenco dei profili salvati (campo NAME). Usato da _profile_exists nel backend
+    # per decidere se cancellare un profilo vecchio prima di ricrearlo.
+    p=$(get profile); [ -n "$p" ] && echo "$p"
+    c=$(get connected); [ -n "$c" ] && [ "$c" != "$p" ] && echo "$c"
+    true
+    ;;
+
   *"connection down Hotspot"*|*"con down Hotspot"*)
     set_kv hotspot off
     echo "hotspot down (mock)"

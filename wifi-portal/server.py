@@ -41,6 +41,12 @@ SCAN_CACHE = os.environ.get("SCAN_CACHE", "/tmp/kiosk-wifi-scan.json")
 SETUP_FLAG = os.environ.get("SETUP_FLAG", "/tmp/kiosk-wifi-setup")
 
 
+def log(msg):
+    """Riga di log su stdout → finisce in /tmp/kiosk-portal.log (vedi launch-kiosk).
+    Serve per capire dove casca il connect senza dover leggere il journal di NM."""
+    print(f"{time.strftime('%H:%M:%S')} [portal] {msg}", flush=True)
+
+
 def nmcli(*args, timeout=25):
     """Esegue nmcli (o il mock). Ritorna (rc, stdout, stderr)."""
     try:
@@ -122,42 +128,61 @@ def _hotspot(action):
         pass
 
 
-def _connect_simple(ssid, password):
-    args = ["dev", "wifi", "connect", ssid]
-    if password:
-        args += ["password", password]
-    rc, out, err = nmcli(*args, timeout=45)
+def _profile_exists(ssid):
+    rc, out, _ = nmcli("-t", "-f", "NAME", "connection", "show")
+    return ssid in out.splitlines()
+
+
+def _connect_open(ssid):
+    rc, out, err = nmcli("dev", "wifi", "connect", ssid, timeout=45)
     return rc == 0, (out or err or "").strip()
 
 
-def _connect_explicit(ssid, password):
-    """Build a WPA-PSK profile explicitly. Fixes '802-11-wireless-security.key-mgmt
-    property is missing', which happens when the target AP isn't in the live scan
-    (e.g. right after the single-radio was busy as an access point)."""
-    nmcli("connection", "delete", ssid)  # remove any half-made profile
+def _connect_psk(ssid, password):
+    """Connessione a una rete protetta creando SEMPRE un profilo WPA-PSK esplicito.
+
+    Perche' non `dev wifi connect ... password`: se esiste gia' un profilo salvato
+    con lo stesso nome (es. una vecchia connessione alla stessa rete), nmcli lo
+    RIATTIVA ignorando la password digitata; se quel profilo ha un PSK vecchio o
+    assente, NetworkManager chiede il segreto a un agente GUI -> spunta il dialog
+    password sullo schermo del kiosk e poi sparisce. Cancellando il profilo e
+    ricreandolo con la PSK esplicita, NM ha gia' il segreto e non chiede nulla."""
+    if _profile_exists(ssid):
+        rc, out, err = nmcli("connection", "delete", ssid)
+        log(f"deleted stale profile {ssid!r} (rc={rc})")
+    log(f"add explicit wpa-psk profile {ssid!r}")
     rc, out, err = nmcli(
         "connection", "add", "type", "wifi", "con-name", ssid, "ssid", ssid,
         "wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password, timeout=25,
     )
     if rc != 0:
+        log(f"connection add failed rc={rc}: {err or out}")
         return False, (err or out or "").strip()
     rc, out, err = nmcli("connection", "up", ssid, timeout=45)
+    log(f"connection up {ssid!r} rc={rc}: {err or out}")
     return rc == 0, (out or err or "").strip()
 
 
 def connect(ssid, password, security="WPA2"):
     """Connect to a WiFi network. Single-radio aware: tears down the setup hotspot
     first so the radio is free to associate as a station; on failure it brings the
-    hotspot back up so the user can retry from the portal."""
+    hotspot back up so the user can retry from the portal. Ogni passo e' loggato
+    su /tmp/kiosk-portal.log per diagnosi."""
+    secured = bool(password) and (security or "").upper() not in ("", "OPEN")
+    log(f"connect ssid={ssid!r} secured={secured}")
     _hotspot("down")               # free the radio from AP mode
+    log("hotspot down (radio freed)")
     nmcli("radio", "wifi", "on")
     nmcli("dev", "wifi", "rescan", timeout=20)  # refresh scan now that the radio is free
     time.sleep(4)
-    ok, msg = _connect_simple(ssid, password)
-    if not ok and password and (security or "").upper() not in ("", "OPEN"):
-        ok, msg = _connect_explicit(ssid, password)  # explicit key-mgmt fallback
+    if secured:
+        ok, msg = _connect_psk(ssid, password)
+    else:
+        ok, msg = _connect_open(ssid)
+    log(f"connect result ok={ok} msg={msg!r}")
     if not ok:
         _hotspot("up")             # restore the portal AP for a retry
+        log("hotspot back up for retry")
     return ok, msg
 
 
@@ -229,6 +254,7 @@ class Handler(BaseHTTPRequestHandler):
             # dallo stato setup (e spegne l'hotspot) al giro successivo.
             try:
                 os.remove(SETUP_FLAG)
+                log(f"connect ok → removed setup flag {SETUP_FLAG}")
             except OSError:
                 pass
         self._json(200 if ok else 502, {"ok": ok, "message": msg})
