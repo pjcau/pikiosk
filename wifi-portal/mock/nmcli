@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# mock/nmcli — Simula i sottocomandi di nmcli usati dal portal, per test in locale.
+#
+# Perche' esiste: sul PC di sviluppo non vogliamo toccare la rete vera. Il backend
+# (server.py), hotspot.sh e net-prefer.sh chiamano sempre "$NMCLI"; in locale $NMCLI
+# punta a questo file, sul Pi al vero /usr/bin/nmcli. Stesso codice, comportamento
+# simulato qui.
+#
+# Stato persistito tra chiamate in un file:
+#   connected=<ssid wifi>   hotspot=on|off   eth=up|down   radio=on|off
+# Comando extra solo-mock per i test: "mock-eth up|down" (simula stacco ethernet).
+set -euo pipefail
+
+STATE="${NMCLI_STATE:-/tmp/mock-nmcli-state}"
+[ -f "$STATE" ] || printf 'connected=\nhotspot=off\neth=down\nradio=on\n' > "$STATE"
+
+get() { grep -m1 "^$1=" "$STATE" | cut -d= -f2-; }
+set_kv() {
+  local k=$1 v=$2 tmp
+  tmp=$(mktemp)
+  grep -v "^$k=" "$STATE" > "$tmp" || true
+  printf '%s=%s\n' "$k" "$v" >> "$tmp"
+  mv "$tmp" "$STATE"
+}
+
+# Reti WiFi finte: SSID|SIGNAL|SECURITY|PASSWORD-CORRETTA (vuota = rete aperta)
+NETWORKS=(
+  "HomeWiFi|82|WPA2|password123"
+  "CoffeeShop|60|WPA2|latte"
+  "OpenGuest|45||"
+  "Neighbor_5G|30|WPA2|secret"
+)
+
+CONNECTED=$(get connected)
+HOTSPOT=$(get hotspot)
+ETH=$(get eth);   [ -z "$ETH" ]   && ETH=down
+RADIO=$(get radio); [ -z "$RADIO" ] && RADIO=on
+
+join_args="$*"
+
+case "$join_args" in
+  # comando extra solo-mock: simula ethernet attaccata/staccata
+  *"mock-eth up"*)   set_kv eth up;   echo "eth up (mock)" ;;
+  *"mock-eth down"*) set_kv eth down; echo "eth down (mock)" ;;
+
+  *"networking connectivity"*)
+    if [ "$ETH" = "up" ]; then echo "full"
+    elif [ "$RADIO" = "on" ] && [ -n "$CONNECTED" ]; then echo "full"
+    else echo "none"; fi
+    ;;
+
+  *"device status"*|*"dev status"*)
+    # Output stile: nmcli -t -f TYPE,STATE device status
+    if [ "$ETH" = "up" ]; then echo "ethernet:connected"; else echo "ethernet:unavailable"; fi
+    if [ "$RADIO" = "off" ]; then echo "wifi:unavailable"
+    elif [ "$HOTSPOT" = "on" ] || [ -n "$CONNECTED" ]; then echo "wifi:connected"
+    else echo "wifi:disconnected"; fi
+    ;;
+
+  *"dev wifi list"*|*"device wifi list"*)
+    # Radio spenta = nessuna scansione possibile
+    [ "$RADIO" = "off" ] && exit 0
+    # Output stile: nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list
+    for n in "${NETWORKS[@]}"; do
+      IFS='|' read -r ssid signal sec _pw <<< "$n"
+      inuse=" "; [ "$ssid" = "$CONNECTED" ] && inuse="*"
+      printf '%s:%s:%s:%s\n' "$inuse" "$ssid" "$signal" "$sec"
+    done
+    ;;
+
+  *"dev wifi hotspot"*|*"device wifi hotspot"*)
+    set_kv radio on
+    set_kv hotspot on
+    echo "Hotspot 'pikiosk-setup' attivato (mock)."
+    ;;
+
+  *"dev wifi connect"*|*"device wifi connect"*)
+    # forma: dev wifi connect "<SSID>" password "<PW>"
+    target_ssid=""; target_pw=""; prev=""
+    for a in "$@"; do
+      case "$prev" in
+        connect) target_ssid="$a" ;;
+        password) target_pw="$a" ;;
+      esac
+      prev="$a"
+    done
+    for n in "${NETWORKS[@]}"; do
+      IFS='|' read -r ssid signal sec pw <<< "$n"
+      if [ "$ssid" = "$target_ssid" ]; then
+        if [ -z "$pw" ] || [ "$pw" = "$target_pw" ]; then
+          set_kv connected "$ssid"
+          set_kv hotspot off
+          echo "Device 'wlan0' successfully activated with '$ssid'."
+          exit 0
+        else
+          echo "Error: Connection activation failed: Secrets were required, but not provided." >&2
+          exit 4
+        fi
+      fi
+    done
+    echo "Error: No network with SSID '$target_ssid' found." >&2
+    exit 10
+    ;;
+
+  *"radio wifi off"*) set_kv radio off; echo "disabled" ;;
+  *"radio wifi on"*)  set_kv radio on;  echo "enabled" ;;
+  *"radio wifi"*)     [ "$RADIO" = "on" ] && echo "enabled" || echo "disabled"; true ;;
+
+  *"connection show --active"*|*"con show --active"*)
+    [ "$HOTSPOT" = "on" ] && echo "Hotspot"
+    [ -n "$CONNECTED" ] && echo "$CONNECTED"
+    true  # il vero nmcli esce 0 qui; senza questo l'ultimo test poteva dare exit 1
+    ;;
+
+  *"connection down Hotspot"*|*"con down Hotspot"*)
+    set_kv hotspot off
+    echo "hotspot down (mock)"
+    ;;
+
+  *"connection down"*|*"con down"*)
+    set_kv connected ""
+    echo "disconnected (mock)"
+    ;;
+
+  *)
+    echo "mock nmcli: comando non gestito: $join_args" >&2
+    exit 2
+    ;;
+esac
