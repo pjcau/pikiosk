@@ -43,11 +43,15 @@
              border-radius:9px; cursor:pointer; font-size:.9rem; }
   .show-pw { color:#9fb0c9; font-size:.85rem; display:flex; align-items:center; gap:6px; cursor:pointer; }
   .qrcard { background: var(--card); border:1px solid var(--line); border-radius:14px;
-            padding:18px; margin-bottom:18px; display:flex; gap:18px; align-items:center; }
+            padding:18px; margin-bottom:18px; display:flex; gap:16px; align-items:center;
+            flex-wrap:wrap; }
   .qrcard h2 { font-size:1.05rem; margin:0 0 6px; }
   .qrcard p { margin:0; color:#9fb0c9; font-size:.88rem; line-height:1.45; }
-  .qrbox { background:#fff; padding:10px; border-radius:10px; line-height:0; flex-shrink:0; }
-  .qrbox svg { width:132px; height:132px; display:block; }
+  .qrcol { display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; }
+  .qrcap { font-size:.74rem; letter-spacing:.06em; text-transform:uppercase; color:#9fb0c9; }
+  .qrtext { flex:1; min-width:200px; }
+  .qrbox { background:#fff; padding:9px; border-radius:10px; line-height:0; }
+  .qrbox svg { width:116px; height:116px; display:block; }
   .creds { margin-top:8px; font-size:.82rem; color:#bcd4f5; }
   .creds b { color:#e6edf6; }
   .divider { text-align:center; color:#6f82a0; font-size:.8rem; letter-spacing:.08em;
@@ -61,10 +65,17 @@
   <p class="sub">Scegli una rete e inserisci la password. Il kiosk riparte da solo appena è online.</p>
 
   <div class="qrcard" id="qrcard" style="display:none">
-    <div class="qrbox" id="qrbox"></div>
-    <div>
-      <h2>Connetti il telefono</h2>
-      <p>Inquadra il QR con la fotocamera: il telefono si connette a questa rete e apre questa pagina.</p>
+    <div class="qrcol">
+      <div class="qrbox" id="qrbox"></div>
+      <span class="qrcap">1 · Connetti</span>
+    </div>
+    <div class="qrcol">
+      <div class="qrbox" id="qrbox2"></div>
+      <span class="qrcap">2 · Apri la pagina</span>
+    </div>
+    <div class="qrtext">
+      <h2>Configura dal telefono</h2>
+      <p>Inquadra il <b>QR 1</b> per connetterti all'hotspot del Pi, poi il <b>QR 2</b> per aprire questa pagina sul telefono.</p>
       <div class="creds" id="creds"></div>
     </div>
   </div>
@@ -225,17 +236,23 @@ function wifiJoinString(ssid, pass) {
   return `WIFI:T:WPA;S:${esc(ssid)};P:${esc(pass)};;`;
 }
 
+function makeQR(el, data) {
+  const qr = qrcode(0, 'M');
+  qr.addData(data);
+  qr.make();
+  el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0 });
+}
+
 async function setupHotspotQR() {
-  if (!onDevice) return;  // sul telefono: niente QR
+  if (!onDevice) return;  // sul telefono: gia' connesso, niente QR
   try {
     const r = await fetch('/api/hotspot/info');
     const h = await r.json();
-    const qr = qrcode(0, 'M');
-    qr.addData(wifiJoinString(h.ssid, h.password));
-    qr.make();
-    document.getElementById('qrbox').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0 });
+    makeQR(document.getElementById('qrbox'), wifiJoinString(h.ssid, h.password));
+    makeQR(document.getElementById('qrbox2'), h.portal_url);
     document.getElementById('creds').innerHTML =
-      `Rete: <b>${escape(h.ssid)}</b> · Password: <b>${escape(h.password)}</b>`;
+      `Rete: <b>${escape(h.ssid)}</b> · Password: <b>${escape(h.password)}</b><br>` +
+      `Pagina: <b>${escape(h.portal_url)}</b>`;
     document.getElementById('qrcard').style.display = 'flex';
     document.getElementById('divider').style.display = 'block';
   } catch (e) { /* niente hotspot info: mostra solo la lista */ }

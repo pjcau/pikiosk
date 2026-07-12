@@ -27,6 +27,16 @@ HOST = os.environ.get("HOST", os.environ.get("PORTAL_HOST", "0.0.0.0"))
 # auto-join. Non sono la password di una WiFi reale (vedi portal.conf).
 HOTSPOT_SSID = os.environ.get("HOTSPOT_SSID", "pikiosk-setup")
 HOTSPOT_PASS = os.environ.get("HOTSPOT_PASS", "pikiosk1234")
+# IP del gateway dell'hotspot (NetworkManager shared usa 10.42.0.1 di default):
+# la pagina lo usa per il QR "apri il portale" che il telefono apre dopo il join.
+HOTSPOT_GW = os.environ.get("HOTSPOT_GW", "10.42.0.1")
+# Cache dell'ultima scansione riuscita. Con UNA sola antenna, mentre l'hotspot e'
+# attivo la radio e' occupata e "dev wifi list" torna vuoto: serviamo la cache
+# scritta poco prima di accendere l'AP (single-radio pattern).
+SCAN_CACHE = os.environ.get("SCAN_CACHE", "/tmp/kiosk-wifi-scan.json")
+# Flag di trigger manuale: dopo una connessione riuscita lo rimuoviamo, così
+# launch-kiosk.sh puo' uscire dallo stato setup (vedi portal.conf).
+SETUP_FLAG = os.environ.get("SETUP_FLAG", "/tmp/kiosk-wifi-setup")
 
 
 def nmcli(*args, timeout=25):
@@ -45,7 +55,7 @@ def connectivity():
     return out or "unknown"
 
 
-def scan():
+def _live_scan():
     # -t = tabellare (campi separati da ':'), -f = campi scelti
     rc, out, err = nmcli("-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list")
     nets, seen = [], set()
@@ -66,6 +76,33 @@ def scan():
         })
     nets.sort(key=lambda n: n["signal"], reverse=True)
     return nets
+
+
+def _read_cache():
+    try:
+        with open(SCAN_CACHE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def _write_cache(nets):
+    try:
+        with open(SCAN_CACHE, "w") as f:
+            json.dump(nets, f)
+    except OSError:
+        pass
+
+
+def scan():
+    """Scansione live; se vuota (hotspot attivo = radio occupata) usa la cache.
+    Ogni scansione live non vuota aggiorna la cache, così quando accenderemo
+    l'hotspot avremo l'ultima lista buona da servire."""
+    nets = _live_scan()
+    if nets:
+        _write_cache(nets)
+        return nets
+    return _read_cache()
 
 
 def active_ssid():
@@ -120,8 +157,13 @@ class Handler(BaseHTTPRequestHandler):
                 "active_ssid": active_ssid(),
             })
         elif path == "/api/hotspot/info":
-            # La pagina usa questi dati per generare il QR di auto-join (WIFI:...).
-            self._json(200, {"ssid": HOTSPOT_SSID, "password": HOTSPOT_PASS})
+            # La pagina usa questi dati per generare il QR di auto-join (WIFI:...)
+            # e il QR/URL "apri il portale" (gateway:porta) dopo il join.
+            self._json(200, {
+                "ssid": HOTSPOT_SSID,
+                "password": HOTSPOT_PASS,
+                "portal_url": f"http://{HOTSPOT_GW}:{PORT}",
+            })
         elif path == "/api/scan":
             self._json(200, {"networks": scan()})
         else:
@@ -140,6 +182,13 @@ class Handler(BaseHTTPRequestHandler):
         if not ssid:
             return self._json(400, {"ok": False, "message": "SSID mancante"})
         ok, msg = connect(ssid, password)
+        if ok:
+            # Connessione riuscita: consuma il flag manuale così launch-kiosk esce
+            # dallo stato setup (e spegne l'hotspot) al giro successivo.
+            try:
+                os.remove(SETUP_FLAG)
+            except OSError:
+                pass
         self._json(200 if ok else 502, {"ok": ok, "message": msg})
 
 
