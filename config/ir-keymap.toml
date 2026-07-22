@@ -1,0 +1,23 @@
+# pikiosk IR remote keymap — TV remote, NEC protocol.
+#
+# Maps the 6 buttons captured with `ir-keytable -t` to standard Linux key events.
+# The kernel rc-core driver emits these on the IR input device; labwc forwards
+# them to Chromium (launched with --enable-spatial-navigation), so the TV remote
+# drives the kiosk like a smart TV: arrows move focus, OK activates, Back goes
+# back in the browser history.
+#
+# To re-capture the scancodes (they are specific to THIS remote):
+#   sudo ir-keytable -s <rcN> -c -p all -t     # press each button, note scancode
+# then edit the values below and: sudo systemctl restart pikiosk-ir
+
+[[protocols]]
+name = "pikiosk"
+protocol = "nec"
+
+[protocols.scancodes]
+0x440 = "KEY_UP"
+0x441 = "KEY_DOWN"
+0x407 = "KEY_LEFT"
+0x406 = "KEY_RIGHT"
+0x444 = "KEY_ENTER"
+0x428 = "KEY_BACK"
