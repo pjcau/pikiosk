@@ -175,6 +175,7 @@ launch_chromium() {
     --disable-features=Translate \
     --check-for-update-interval=31536000 \
     --autoplay-policy=no-user-gesture-required \
+    --enable-spatial-navigation \
     "$url" &
 }
 
