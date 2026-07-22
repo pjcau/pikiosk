@@ -11,6 +11,7 @@ Raspberry Pi 5 kiosk setup with VPN and remote VNC control.
   a network from your phone (or the on-screen list) — no VNC/internet needed
 - Recovers automatically when conditions are restored
 - Remote control via **VNC** (TigerVNC on PC, VNC Viewer on iOS)
+- Navigable with a **TV/IR remote** (arrows + OK + Back) via a GPIO IR receiver
 - SSH always available for management
 
 ## Stack
@@ -128,12 +129,15 @@ pikiosk/
 ├── install.sh              # Automated setup script
 ├── kiosk/
 │   ├── launch-kiosk.sh     # VPN + temp check, launches Chromium
+│   ├── ir-remote.sh        # Loads the IR keymap onto the gpio-ir receiver
 │   ├── vpn-error.html      # Shown when VPN is down
 │   └── temp-warning.html   # Shown when temperature >= 80°C
 ├── config/
 │   ├── labwc-autostart     # ~/.config/labwc/autostart (points at the clone)
 │   ├── lightdm-autologin.conf  # /etc/lightdm/lightdm.conf.d/
 │   ├── drm.conf            # /etc/modprobe.d/drm.conf
+│   ├── ir-keymap.toml      # TV-remote scancodes → key events (NEC)
+│   ├── pikiosk-ir.service  # systemd unit that loads the IR keymap at boot
 │   └── wireguard-template.conf  # Template for /etc/wireguard/protonvpn.conf
 ├── scripts/
 │   └── monitor.sh          # Live power and temperature monitor
@@ -196,6 +200,51 @@ wpctl status
 # Confirm HDMI was set (look for the "HDMI sink ... set to 100%" line)
 grep HDMI /tmp/kiosk.log
 ```
+
+## IR remote control
+
+The kiosk can be driven with a **TV remote** (or any IR remote) via a cheap IR
+receiver module wired to the GPIO header — navigate the site like a smart TV.
+
+**Wiring** (3 wires, Pi powered off):
+
+| IR module pin | Raspberry pin | Note |
+|---|---|---|
+| VCC | Pin 1 (3.3V) | **3.3V, not 5V** — keeps the DAT output at a GPIO-safe level |
+| GND | Pin 6 (GND) | any ground pin works |
+| DAT / OUT | Pin 12 (GPIO18) | the signal line the kernel reads |
+
+**How it works:** the `gpio-ir` device-tree overlay makes the kernel decode the IR
+signal; `ir-remote.sh` (run at boot by the `pikiosk-ir` systemd service) loads
+`config/ir-keymap.toml` onto the receiver with `ir-keytable`. From then on the
+kernel emits standard key events for each button — no daemon runs. labwc forwards
+them to Chromium, which is launched with `--enable-spatial-navigation` so the arrow
+keys move focus between links/buttons by on-screen position:
+
+| Remote button | Key event | Action in Chromium |
+|---|---|---|
+| Up / Down / Left / Right | `KEY_UP/DOWN/LEFT/RIGHT` | move focus spatially |
+| OK | `KEY_ENTER` | activate the focused element |
+| Back | `KEY_BACK` | go back in history |
+
+The default keymap uses the NEC scancodes of one specific remote. **Your remote is
+different** — re-capture its codes and edit `config/ir-keymap.toml`:
+
+```bash
+# Find the gpio-ir device and listen (press each button, note the scancode):
+ir-keytable                       # shows the rcN backed by gpio_ir_recv
+sudo ir-keytable -s rc2 -c -p all -t   # replace rc2 with your device
+
+# Edit config/ir-keymap.toml with the scancodes, then re-apply:
+sudo systemctl restart pikiosk-ir
+tail -n 20 /tmp/kiosk-ir.log      # confirms which device/keymap was loaded
+```
+
+Troubleshooting: nothing decoded → check the remote is really IR (its LED blinks
+when seen through a phone camera) and that `pinctrl get 18` reads `hi` at rest
+(a `lo` means the module isn't powered / DAT isn't wired — a VCC↔DAT swap is the
+usual cause). `dtoverlay=gpio-ir,gpio_pin=18` must be in `/boot/firmware/config.txt`
+(added by `install.sh`) and takes effect only after a reboot.
 
 ## VNC access
 

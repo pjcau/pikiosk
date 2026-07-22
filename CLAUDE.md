@@ -17,6 +17,9 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `install.sh` | Setup (run-in-place): installa solo i file `/etc` e aggancia l'autostart al clone |
 | `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`recon`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
 | `kiosk/*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
+| `kiosk/ir-remote.sh` | Carica la keymap IR sul ricevitore gpio-ir (trova il device per driver, non per `rcN` fisso); girato al boot dal service `pikiosk-ir` |
+| `config/ir-keymap.toml` | Scancode del telecomando (NEC) → tasti standard (`KEY_UP/…/ENTER/BACK`) |
+| `config/pikiosk-ir.service` | Unit systemd che lancia `ir-remote.sh` al boot (`__REPO_DIR__` sostituito da install.sh) |
 | `config/labwc-autostart` | Autostart labwc (VNC + kiosk); `__REPO_DIR__` sostituito da install.sh |
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
 | `scripts/monitor.sh` | Monitor live di potenza e temperatura |
@@ -63,6 +66,35 @@ corso"): si mostra quando manca l'uplink entro il debounce **oppure** quando la 
 è giù da poco (contatore `VPN_DOWN_COUNT < VPN_GRACE`, ~fino a 60s con rete stabile).
 Solo se la VPN resta giù **con uplink stabile** oltre la grace si passa a `vpn`
 (errore reale, es. IP ProtonVPN bloccato). `update_counters()` mantiene i contatori.
+
+## Telecomando IR
+
+Il kiosk è pilotabile con un **telecomando TV a infrarossi** tramite un modulo
+ricevitore IR cablato su **GPIO18** (pin fisico 12; VCC su 3.3V — **non 5V** — GND su
+pin 6). Catena, tutta **in-kernel, senza demoni**:
+
+1. Overlay **`gpio-ir`** (`dtoverlay=gpio-ir,gpio_pin=18` in `/boot/firmware/config.txt`,
+   aggiunto da `install.sh`, attivo dopo reboot) → il kernel decodifica l'IR.
+2. `ir-remote.sh` (al boot, via service `pikiosk-ir`, da root) trova il device
+   `gpio_ir_recv` **per nome driver** (l'indice `rcN` cambia ad ogni boot) e carica
+   `config/ir-keymap.toml` con `ir-keytable -s <dev> -c -w`. Il `.toml` abilita **solo
+   NEC**, così spariscono le decodifiche spurie (`imon 0x7fffffff`). Log su
+   `/tmp/kiosk-ir.log`.
+3. Da lì il kernel emette **eventi tasto standard** (`KEY_UP/DOWN/LEFT/RIGHT/ENTER/BACK`)
+   sul device input IR; labwc li legge via libinput e li passa a Chromium.
+4. Chromium è lanciato con **`--enable-spatial-navigation`**: le frecce spostano il
+   focus tra link/pulsanti per posizione a schermo, OK (`ENTER`) attiva, Back
+   (`KEY_BACK` → `XF86Back`) torna indietro nella cronologia.
+
+**Keymap specifica del telecomando**: gli scancode in `ir-keymap.toml` sono di *quel*
+telecomando. Per un altro telecomando: `sudo ir-keytable -s <rcN> -c -p all -t`, premi
+i tasti, annota gli scancode, aggiorna il `.toml`, poi `sudo systemctl restart pikiosk-ir`.
+Il `git pull` aggiorna keymap e script (run-in-place); il restart del service li ri-applica.
+
+**Diagnosi**: `pinctrl get 18` deve dare `hi` a riposo (sensore alimentato e DAT
+connesso); `lo` = modulo non alimentato o DAT non cablato (spesso VCC↔DAT invertiti).
+Verifica che il telecomando sia davvero IR (LED che lampeggia visto dalla fotocamera
+del telefono): molti telecomandi smart-TV sono Bluetooth, non IR.
 
 ## Setup WiFi offline (`wifi-portal/` + stato `setup`)
 
