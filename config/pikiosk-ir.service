@@ -1,0 +1,15 @@
+# pikiosk IR keymap loader. Installed to /etc/systemd/system/ by install.sh,
+# with __REPO_DIR__ replaced by the clone path (run-in-place). Loads the NEC
+# keymap onto the gpio-ir receiver at boot; `git pull` updates the keymap, then
+# `sudo systemctl restart pikiosk-ir` re-applies it.
+[Unit]
+Description=pikiosk IR remote keymap loader
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=__REPO_DIR__/kiosk/ir-remote.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
