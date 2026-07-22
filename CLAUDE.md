@@ -69,9 +69,15 @@ Solo se la VPN resta giù **con uplink stabile** oltre la grace si passa a `vpn`
 
 ## Telecomando IR
 
+> **Opt-in, disattivato di default**: `install.sh` **non** configura l'IR a meno di
+> lanciarlo con `ENABLE_IR=1 ./install.sh`. Senza il flag non viene aggiunto l'overlay
+> né installato il service `pikiosk-ir`. Per spegnerlo su un Pi già configurato vedi
+> la sezione *Disabling the IR remote* nel README (disable del service + commento
+> dell'overlay + reboot).
+
 Il kiosk è pilotabile con un **telecomando TV a infrarossi** tramite un modulo
 ricevitore IR cablato su **GPIO18** (pin fisico 12; VCC su 3.3V — **non 5V** — GND su
-pin 6). Catena, tutta **in-kernel, senza demoni**:
+pin 6), **se abilitato** (`ENABLE_IR=1`). Catena, tutta **in-kernel, senza demoni**:
 
 1. Overlay **`gpio-ir`** (`dtoverlay=gpio-ir,gpio_pin=18` in `/boot/firmware/config.txt`,
    aggiunto da `install.sh`, attivo dopo reboot) → il kernel decodifica l'IR.

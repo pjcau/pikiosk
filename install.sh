@@ -14,6 +14,9 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 USER_NAME="$(whoami)"
 HOME_DIR="/home/${USER_NAME}"
 
+# IR remote is opt-in and OFF by default. Enable with: ENABLE_IR=1 ./install.sh
+ENABLE_IR="${ENABLE_IR:-0}"
+
 echo "======================================"
 echo " pikiosk installer (run-in-place)"
 echo " User: ${USER_NAME}"
@@ -65,20 +68,24 @@ else
   echo "  Copy your ProtonVPN WireGuard config to config/wireguard.conf and re-run."
 fi
 
-# ── 7. IR remote (gpio-ir overlay + keymap loader service) ───────────────────
-echo "[7/9] Setting up IR remote receiver..."
-BOOT_CFG=/boot/firmware/config.txt
-if ! grep -q '^dtoverlay=gpio-ir' "$BOOT_CFG" 2>/dev/null; then
-  printf '\n[all]\ndtoverlay=gpio-ir,gpio_pin=18\n' | sudo tee -a "$BOOT_CFG" > /dev/null
-  echo "  gpio-ir overlay added on GPIO18 (physical pin 12) — active after reboot."
+# ── 7. IR remote (opt-in: gpio-ir overlay + keymap loader service) ───────────
+if [ "$ENABLE_IR" = "1" ]; then
+  echo "[7/9] Setting up IR remote receiver..."
+  BOOT_CFG=/boot/firmware/config.txt
+  if ! grep -q '^dtoverlay=gpio-ir' "$BOOT_CFG" 2>/dev/null; then
+    printf '\n[all]\ndtoverlay=gpio-ir,gpio_pin=18\n' | sudo tee -a "$BOOT_CFG" > /dev/null
+    echo "  gpio-ir overlay added on GPIO18 (physical pin 12) — active after reboot."
+  else
+    echo "  gpio-ir overlay already present."
+  fi
+  # Service that loads our keymap at boot (rc device index is auto-detected).
+  sed "s|__REPO_DIR__|${REPO_DIR}|g" "${REPO_DIR}/config/pikiosk-ir.service" \
+    | sudo tee /etc/systemd/system/pikiosk-ir.service > /dev/null
+  sudo systemctl daemon-reload
+  sudo systemctl enable pikiosk-ir.service > /dev/null 2>&1 || true
 else
-  echo "  gpio-ir overlay already present."
+  echo "[7/9] IR remote disabled (set ENABLE_IR=1 to enable). Skipping."
 fi
-# Service that loads our keymap at boot (rc device index is auto-detected).
-sed "s|__REPO_DIR__|${REPO_DIR}|g" "${REPO_DIR}/config/pikiosk-ir.service" \
-  | sudo tee /etc/systemd/system/pikiosk-ir.service > /dev/null
-sudo systemctl daemon-reload
-sudo systemctl enable pikiosk-ir.service > /dev/null 2>&1 || true
 
 # ── 8. Wire autostart to the clone (run-in-place) ────────────────────────────
 echo "[8/9] Wiring labwc autostart to ${REPO_DIR}/kiosk/launch-kiosk.sh ..."

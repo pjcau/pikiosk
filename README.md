@@ -206,6 +206,11 @@ grep HDMI /tmp/kiosk.log
 The kiosk can be driven with a **TV remote** (or any IR remote) via a cheap IR
 receiver module wired to the GPIO header — navigate the site like a smart TV.
 
+> **Opt-in — off by default.** `install.sh` does **not** set up the IR receiver
+> unless you enable it: `ENABLE_IR=1 ./install.sh`. Without that flag no overlay is
+> added and the `pikiosk-ir` service is not installed. To disable it on a Pi where
+> it was already set up, see **[Disabling the IR remote](#disabling-the-ir-remote)**.
+
 **Wiring** (3 wires, Pi powered off):
 
 | IR module pin | Raspberry pin | Note |
@@ -244,7 +249,28 @@ Troubleshooting: nothing decoded → check the remote is really IR (its LED blin
 when seen through a phone camera) and that `pinctrl get 18` reads `hi` at rest
 (a `lo` means the module isn't powered / DAT isn't wired — a VCC↔DAT swap is the
 usual cause). `dtoverlay=gpio-ir,gpio_pin=18` must be in `/boot/firmware/config.txt`
-(added by `install.sh`) and takes effect only after a reboot.
+(added by `ENABLE_IR=1 ./install.sh`) and takes effect only after a reboot.
+
+### Disabling the IR remote
+
+`install.sh` no longer sets up IR by default, but on a Pi where it was previously
+enabled you must undo the two pieces it left behind. Run **on the Pi**:
+
+```bash
+# 1. Stop and disable the keymap loader service
+sudo systemctl disable --now pikiosk-ir.service
+sudo rm -f /etc/systemd/system/pikiosk-ir.service
+sudo systemctl daemon-reload
+
+# 2. Remove the device-tree overlay (comment it out), then reboot
+sudo sed -i 's/^dtoverlay=gpio-ir/#&/' /boot/firmware/config.txt
+sudo reboot
+```
+
+Chromium's `--enable-spatial-navigation` flag is harmless without a remote (it only
+affects arrow-key focus), so it can stay. Removing the overlay just stops the kernel
+from decoding IR; leaving the `gpio-ir` overlay in place with the service disabled is
+also fine — it simply parks GPIO18 as an IR input that nothing reads.
 
 ## VNC access
 
