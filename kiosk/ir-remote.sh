@@ -20,8 +20,9 @@ LOG=/tmp/kiosk-ir.log
 log() { echo "$(date): $*" >> "$LOG"; }
 
 # Find the rc device backed by the gpio-ir driver (index varies across boots).
+# ir-keytable prints its device listing to stderr, so fold it into stdout (2>&1).
 find_dev() {
-  ir-keytable 2>/dev/null | awk '
+  ir-keytable 2>&1 | awk '
     /Found/                       { match($0, /rc[0-9]+/); dev=substr($0,RSTART,RLENGTH) }
     /gpio_ir_recv|gpio-ir-recv/   { print dev; exit }'
 }
