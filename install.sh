@@ -35,7 +35,8 @@ sudo apt install -y \
   unclutter \
   wireguard resolvconf \
   git curl \
-  python3 network-manager
+  python3 network-manager \
+  ir-keytable
 
 # ── 3. User groups ────────────────────────────────────────────────────────────
 echo "[3/8] Adding user to groups..."
@@ -64,10 +65,26 @@ else
   echo "  Copy your ProtonVPN WireGuard config to config/wireguard.conf and re-run."
 fi
 
-# ── 7. Wire autostart to the clone (run-in-place) ────────────────────────────
-echo "[7/8] Wiring labwc autostart to ${REPO_DIR}/kiosk/launch-kiosk.sh ..."
+# ── 7. IR remote (gpio-ir overlay + keymap loader service) ───────────────────
+echo "[7/9] Setting up IR remote receiver..."
+BOOT_CFG=/boot/firmware/config.txt
+if ! grep -q '^dtoverlay=gpio-ir' "$BOOT_CFG" 2>/dev/null; then
+  printf '\n[all]\ndtoverlay=gpio-ir,gpio_pin=18\n' | sudo tee -a "$BOOT_CFG" > /dev/null
+  echo "  gpio-ir overlay added on GPIO18 (physical pin 12) — active after reboot."
+else
+  echo "  gpio-ir overlay already present."
+fi
+# Service that loads our keymap at boot (rc device index is auto-detected).
+sed "s|__REPO_DIR__|${REPO_DIR}|g" "${REPO_DIR}/config/pikiosk-ir.service" \
+  | sudo tee /etc/systemd/system/pikiosk-ir.service > /dev/null
+sudo systemctl daemon-reload
+sudo systemctl enable pikiosk-ir.service > /dev/null 2>&1 || true
+
+# ── 8. Wire autostart to the clone (run-in-place) ────────────────────────────
+echo "[8/9] Wiring labwc autostart to ${REPO_DIR}/kiosk/launch-kiosk.sh ..."
 # Make the in-repo scripts executable (git may not preserve the bit on all setups).
 chmod +x "${REPO_DIR}/kiosk/launch-kiosk.sh" \
+         "${REPO_DIR}/kiosk/ir-remote.sh" \
          "${REPO_DIR}/scripts/monitor.sh" \
          "${REPO_DIR}/wifi-portal/"*.sh \
          "${REPO_DIR}/wifi-portal/mock/nmcli" 2>/dev/null || true
@@ -78,8 +95,8 @@ sed "s|__REPO_DIR__|${REPO_DIR}|g" \
   "${REPO_DIR}/config/labwc-autostart" > "${HOME_DIR}/.config/labwc/autostart"
 chmod +x "${HOME_DIR}/.config/labwc/autostart"
 
-# ── 8. Done ───────────────────────────────────────────────────────────────────
-echo "[8/8] Done!"
+# ── 9. Done ───────────────────────────────────────────────────────────────────
+echo "[9/9] Done!"
 echo ""
 echo "======================================"
 echo " Setup complete."
