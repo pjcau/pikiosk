@@ -18,16 +18,16 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`recon`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
 | `URL_SITE` (env) | Sito mostrato dal kiosk; default BBC One iPlayer. Permanente in `~/.config/labwc/environment` (letto anche da `kiosk.sh start`); una tantum `URL_SITE=... ./scripts/kiosk.sh restart` |
 | `kiosk/*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
-| `kiosk/focus-ring/` | Estensione Chromium locale per il telecomando: bordo di focus grande (`focus.css`) + Back/F9 = pagina precedente (`back.js`) |
-| `config/labwc-rc.xml` | `rc.xml` di labwc **senza keybind** (F9 deve arrivare a Chromium); sovrascrive la vecchia versione col keybind `wtype` |
+| `kiosk/focus-ring/` | Estensione Chromium locale (bordo di focus grande). **Non attiva**: Chromium 154 ignora `--load-extension` |
+| `config/labwc-rc.xml` | `rc.xml` di labwc **senza keybind** (Back deve arrivare a Chromium); sovrascrive la vecchia versione col keybind `wtype` |
 | `kiosk/ir-remote.sh` | Carica la keymap IR sul ricevitore gpio-ir (trova il device per driver, non per `rcN` fisso); girato al boot dal service `pikiosk-ir` |
-| `config/ir-keymap.toml` | Scancode del telecomando (NEC) → tasti standard (`KEY_UP/…/ENTER`, Back = `KEY_F9`) |
+| `config/ir-keymap.toml` | Scancode del telecomando (NEC) → tasti standard (`KEY_UP/…/ENTER/BACK`) |
 | `config/pikiosk-ir.service` | Unit systemd che lancia `ir-remote.sh` al boot (`__REPO_DIR__` sostituito da install.sh) |
 | `config/labwc-autostart` | Autostart labwc (VNC + kiosk); `__REPO_DIR__` sostituito da install.sh |
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
 | `scripts/monitor.sh` | Monitor live di potenza e temperatura |
 | `scripts/clean-browser.sh` | Pulisce cache/cookie di Chromium (`--all` = profilo intero) e riavvia la sessione (`lightdm`) |
-| `scripts/apply-remote.sh` | Applica le modifiche al telecomando senza reboot: restart `pikiosk-ir` (keymap), copia `labwc-rc.xml` + `pkill -HUP labwc`, riavvio kiosk (`--no-kiosk` per saltarlo) |
+| `scripts/apply-remote.sh` | Applica le modifiche al telecomando senza reboot: reinstalla l'unit `pikiosk-ir` + restart (keymap), copia `labwc-rc.xml`, **riavvia la sessione** (`lightdm`) perché labwc riapra il ricevitore (`--no-restart` per saltarlo) |
 | `scripts/kiosk.sh` | `start/stop/restart/status` dell'app kiosk senza reboot (anche da SSH: setta le variabili Wayland); lo `stop` spegne anche portal e hotspot |
 | `wifi-portal/` | Setup WiFi offline (hotspot + pagina) — vedi sezione dedicata |
 
@@ -92,27 +92,28 @@ pin 6), attivo di default (`ENABLE_IR=0` per saltarlo). Catena, tutta **in-kerne
    `config/ir-keymap.toml` con `ir-keytable -s <dev> -c -w`. Il `.toml` abilita **solo
    NEC**, così spariscono le decodifiche spurie (`imon 0x7fffffff`). Log su
    `/tmp/kiosk-ir.log`.
-3. Da lì il kernel emette **eventi tasto standard** (`KEY_UP/DOWN/LEFT/RIGHT/ENTER`, e `KEY_F9` per Back)
+3. Da lì il kernel emette **eventi tasto standard** (`KEY_UP/DOWN/LEFT/RIGHT/ENTER/BACK`)
    sul device input IR; labwc li legge via libinput e li passa a Chromium.
 4. Chromium è lanciato con **`--enable-spatial-navigation`**: le frecce spostano il
    focus tra link/pulsanti per posizione a schermo, OK (`ENTER`) attiva, Back
-   (`KEY_F9`) torna indietro nella cronologia (vedi punto 6).
-5. Chromium carica anche l'estensione locale **`kiosk/focus-ring/`** (`--load-extension`):
-   CSS iniettato in ogni pagina che rende il bordo di focus **spesso e giallo con alone
-   scuro** (quello di default è troppo fine per vedere dove si è col telecomando).
-   Spessore/colore in `focus.css`; si applica con `./scripts/kiosk.sh restart`.
-6. **Back**: il tasto Back è mappato a **`KEY_F9`, non `KEY_BACK`**. Verificato con
-   `wev` sul Pi: `KEY_BACK` (`XF86Back`) arriva a libinput ma labwc lo scarta, non
-   raggiunge né i keybind né le app (le frecce invece passano). F9 passa normalmente.
-   F9 arriva a Chromium e lo gestisce l'estensione: **`kiosk/focus-ring/back.js`**
-   intercetta `F9` (e `BrowserBack`) e chiama `history.back()`.
-   **Non usare `wtype`**: provato (keybind labwc F9 → `wtype -M alt -k Left -m alt`)
-   ma sul Pi alle app arrivano solo Ctrl/Alt, mai il tasto Sinistra. Per questo
-   `config/labwc-rc.xml` (installato **sempre** da `install.sh` in
-   `~/.config/labwc/rc.xml`, backup in `.bak`) ora **non ha keybind**: serve solo a
-   sovrascrivere la vecchia versione che intercettava F9.
-   Si applica con `./scripts/apply-remote.sh`. Diagnosi tasti: `wev` da SSH
-   (`WAYLAND_DISPLAY=wayland-0`, pipe con `stdbuf -oL`).
+   (`KEY_BACK` → `XF86Back`) torna indietro nella cronologia, gestito da Chromium.
+5. **Ordine di avvio (IMPORTANTE)**: `pikiosk-ir.service` gira **`Before=display-manager`**.
+   labwc (libinput/libevdev) memorizza i tasti che il ricevitore dichiara quando lo
+   apre e **scarta tutti gli altri**. Se la keymap si carica dopo l'avvio di labwc
+   passano solo i tasti della keymap di default del kernel (`rc-rc6-mce`: frecce,
+   Enter) e Back sparisce in silenzio. `libinput debug-events` lo vede lo stesso
+   (è un processo nuovo), quindi non basta come prova: usa `wev`. Per lo stesso
+   motivo, dopo aver cambiato la keymap serve **riavviare la sessione**
+   (`./scripts/apply-remote.sh` lo fa).
+6. **Bordo di focus**: `kiosk/focus-ring/` (estensione con CSS per un bordo giallo
+   spesso) è caricata con `--load-extension`, ma **Chromium 154 ignora il flag**:
+   l'estensione oggi **non è attiva**. Da rifare con un altro meccanismo.
+7. **Cose già provate e scartate**: keybind labwc F9/XF86Back → `wtype -M alt -k Left
+   -m alt` (sul Pi `wtype` non consegna il tasto Sinistra) e `back.js` nell'estensione
+   (l'estensione non si carica). `config/labwc-rc.xml` (installato **sempre** in
+   `~/.config/labwc/rc.xml`, backup in `.bak`) è senza keybind e serve a sovrascrivere
+   quei vecchi keybind. Diagnosi tasti: `wev` da SSH (`WAYLAND_DISPLAY=wayland-0`,
+   pipe con `stdbuf -oL`); la coppia Ctrl+Alt con `time: 0` è un artefatto, ignorala.
 
 **Keymap specifica del telecomando**: gli scancode in `ir-keymap.toml` sono di *quel*
 telecomando. Per un altro telecomando: `sudo ir-keytable -s <rcN> -c -p all -t`, premi

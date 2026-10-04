@@ -135,7 +135,7 @@ pikiosk/
 │   └── temp-warning.html   # Shown when temperature >= 80°C
 ├── config/
 │   ├── labwc-autostart     # ~/.config/labwc/autostart (points at the clone)
-│   ├── labwc-rc.xml        # ~/.config/labwc/rc.xml (no keybinds, lets F9 reach Chromium)
+│   ├── labwc-rc.xml        # ~/.config/labwc/rc.xml (no keybinds, lets Back reach Chromium)
 │   ├── lightdm-autologin.conf  # /etc/lightdm/lightdm.conf.d/
 │   ├── drm.conf            # /etc/modprobe.d/drm.conf
 │   ├── ir-keymap.toml      # TV-remote scancodes → key events (NEC)
@@ -248,32 +248,33 @@ keys move focus between links/buttons by on-screen position:
 |---|---|---|
 | Up / Down / Left / Right | `KEY_UP/DOWN/LEFT/RIGHT` | move focus spatially |
 | OK | `KEY_ENTER` | activate the focused element |
-| Back | `KEY_F9` | go back in history (via labwc, see below) |
+| Back | `KEY_BACK` | go back in history (handled natively by Chromium) |
 
-Chromium's default focus outline is a thin line that's hard to see from the sofa, so
-`launch-kiosk.sh` also loads `kiosk/focus-ring/` (`--load-extension`): a local
-extension whose CSS draws a thick yellow outline with a dark halo around the focused
-element on every page. Tweak thickness/colour in `kiosk/focus-ring/focus.css`, then
-`./scripts/kiosk.sh restart`.
+**Boot order matters:** `pikiosk-ir.service` runs `Before=display-manager.service`.
+labwc (via libinput/libevdev) remembers which keys the IR device advertises when it
+opens it and drops every other key. If the keymap were loaded after labwc started,
+only the kernel's default-map keys (arrows, Enter) would get through and Back would
+vanish silently — `libinput debug-events` still shows it (fresh process), so use
+`wev` to check what apps really receive. For the same reason, after changing the
+keymap the graphical session must be restarted (`apply-remote.sh` does it).
 
-**Back button:** the remote's Back is mapped to **`KEY_F9`**, not `KEY_BACK`: on the
-Pi labwc swallows `XF86Back` before any keybind or app sees it (checked with `wev`),
-while F9 passes through like the arrows. F9 reaches Chromium, where the focus-ring
-extension's `back.js` catches it and calls `history.back()`.
+**Focus outline:** `kiosk/focus-ring/` is a local extension (thick yellow outline) loaded
+with `--load-extension`, but **Chromium 154 ignores that flag**, so it is currently
+not active.
 
 `config/labwc-rc.xml` (installed by `install.sh` as `~/.config/labwc/rc.xml`, any
-existing one backed up to `rc.xml.bak`) deliberately has **no keybinds**: an earlier
-version bound F9 to `wtype` Alt+Left, but `wtype` doesn't deliver keys on the Pi and
-the binding swallowed F9 — installing the new file removes it.
+existing one backed up to `rc.xml.bak`) deliberately has **no keybinds**: it replaces
+an earlier version that bound Back to `wtype` Alt+Left (which doesn't work on the Pi)
+and swallowed the key.
 
 **Apply remote changes in one go** (after editing the keymap, `labwc-rc.xml` or
 `focus.css`, or after a `git pull`) — no reboot, no full `install.sh`:
 
 ```bash
-./scripts/apply-remote.sh            # restarts pikiosk-ir (keymap),
-                                     # copies rc.xml (backup .bak) + reloads labwc,
-                                     # restarts the kiosk
-./scripts/apply-remote.sh --no-kiosk # same, without restarting the kiosk
+./scripts/apply-remote.sh              # reinstalls + restarts pikiosk-ir (keymap),
+                                       # copies rc.xml (backup .bak), restarts the
+                                       # graphical session so labwc sees new keys
+./scripts/apply-remote.sh --no-restart # same, without the session restart
 ```
 
 The default keymap uses the NEC scancodes of one specific remote. **Your remote is
