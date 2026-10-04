@@ -30,6 +30,16 @@ do_start() {
   if is_running; then
     echo "kiosk già in esecuzione (usa restart)"; return
   fi
+  # Stesse variabili della sessione labwc (es. URL_SITE), così da SSH il kiosk
+  # parte uguale all'avvio automatico. Un URL_SITE passato a mano vince sul file.
+  local url_override="$URL_SITE"
+  if [ -f "$HOME/.config/labwc/environment" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$HOME/.config/labwc/environment"
+    set +a
+  fi
+  [ -n "$url_override" ] && export URL_SITE="$url_override"
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
   if [ -z "$WAYLAND_DISPLAY" ]; then
     local sock
