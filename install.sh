@@ -39,7 +39,7 @@ sudo apt install -y \
   wireguard resolvconf \
   git curl \
   python3 network-manager \
-  ir-keytable
+  ir-keytable wtype
 
 # ── 3. User groups ────────────────────────────────────────────────────────────
 echo "[3/8] Adding user to groups..."
@@ -83,6 +83,15 @@ if [ "$ENABLE_IR" = "1" ]; then
     | sudo tee /etc/systemd/system/pikiosk-ir.service > /dev/null
   sudo systemctl daemon-reload
   sudo systemctl enable pikiosk-ir.service > /dev/null 2>&1 || true
+  # labwc keybind: remote Back (XF86Back) → Alt+Left = Chromium history back.
+  LABWC_RC="${HOME_DIR}/.config/labwc/rc.xml"
+  mkdir -p "${HOME_DIR}/.config/labwc"
+  if [ -f "$LABWC_RC" ] && ! cmp -s "$LABWC_RC" "${REPO_DIR}/config/labwc-rc.xml"; then
+    cp "$LABWC_RC" "${LABWC_RC}.bak"
+    echo "  Existing labwc rc.xml backed up to ${LABWC_RC}.bak"
+  fi
+  cp "${REPO_DIR}/config/labwc-rc.xml" "$LABWC_RC"
+  echo "  labwc Back-key binding installed (Back → Alt+Left)."
 else
   echo "[7/9] IR remote disabled (set ENABLE_IR=1 to enable). Skipping."
 fi
