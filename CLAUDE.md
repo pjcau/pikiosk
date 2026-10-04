@@ -17,7 +17,8 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `install.sh` | Setup (run-in-place): installa solo i file `/etc` e aggancia l'autostart al clone |
 | `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`recon`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
 | `kiosk/*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
-| `kiosk/focus-ring/` | Estensione Chromium locale per il telecomando: bordo di focus grande (`focus.css`) + tasto Back = pagina precedente (`back.js`) |
+| `kiosk/focus-ring/` | Estensione Chromium locale: bordo di focus grande e visibile per il telecomando (`focus.css`) |
+| `config/labwc-rc.xml` | Keybind labwc: Back del telecomando (`XF86Back`) → Alt+Sinistra = indietro in Chromium (via `wtype`) |
 | `kiosk/ir-remote.sh` | Carica la keymap IR sul ricevitore gpio-ir (trova il device per driver, non per `rcN` fisso); girato al boot dal service `pikiosk-ir` |
 | `config/ir-keymap.toml` | Scancode del telecomando (NEC) → tasti standard (`KEY_UP/…/ENTER/BACK`) |
 | `config/pikiosk-ir.service` | Unit systemd che lancia `ir-remote.sh` al boot (`__REPO_DIR__` sostituito da install.sh) |
@@ -93,13 +94,16 @@ pin 6), **se abilitato** (`ENABLE_IR=1`). Catena, tutta **in-kernel, senza demon
    sul device input IR; labwc li legge via libinput e li passa a Chromium.
 4. Chromium è lanciato con **`--enable-spatial-navigation`**: le frecce spostano il
    focus tra link/pulsanti per posizione a schermo, OK (`ENTER`) attiva, Back
-   (`KEY_BACK` → `XF86Back`) torna indietro nella cronologia.
+   (`KEY_BACK` → `XF86Back`) torna indietro nella cronologia (vedi punto 6).
 5. Chromium carica anche l'estensione locale **`kiosk/focus-ring/`** (`--load-extension`):
    CSS iniettato in ogni pagina che rende il bordo di focus **spesso e giallo con alone
    scuro** (quello di default è troppo fine per vedere dove si è col telecomando).
    Spessore/colore in `focus.css`; si applica con `./scripts/kiosk.sh restart`.
-   La stessa estensione gestisce **Back**: Chromium su Linux/Wayland ignora `KEY_BACK`
-   (`BrowserBack`), quindi `back.js` lo intercetta e chiama `history.back()`.
+6. **Back**: Chromium su Wayland ignora `KEY_BACK` (`XF86Back`) come "indietro", e un
+   content script non lo riceve. Quindi lo gestisce **labwc**: `config/labwc-rc.xml`
+   (installato da `install.sh` con `ENABLE_IR=1` in `~/.config/labwc/rc.xml`, backup
+   dell'esistente in `.bak`) lega `XF86Back` a `wtype -M alt -k Left -m alt`, cioè
+   **Alt+Sinistra** = indietro di Chromium. Si applica con `labwc --reconfigure`.
 
 **Keymap specifica del telecomando**: gli scancode in `ir-keymap.toml` sono di *quel*
 telecomando. Per un altro telecomando: `sudo ir-keytable -s <rcN> -c -p all -t`, premi
