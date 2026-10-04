@@ -29,7 +29,7 @@ if systemctl list-unit-files pikiosk-ir.service >/dev/null 2>&1 \
   sudo systemctl restart pikiosk-ir.service
   tail -n 1 /tmp/kiosk-ir.log 2>/dev/null | sed 's/^/  /'
 else
-  echo "  service pikiosk-ir non installato: lancia prima ENABLE_IR=1 ./install.sh"
+  echo "  service pikiosk-ir non installato: lancia prima ./install.sh"
 fi
 
 # 3. Azioni dei tasti in labwc (rc.xml), con backup se diverso

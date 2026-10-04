@@ -14,8 +14,8 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 USER_NAME="$(whoami)"
 HOME_DIR="/home/${USER_NAME}"
 
-# IR remote is opt-in and OFF by default. Enable with: ENABLE_IR=1 ./install.sh
-ENABLE_IR="${ENABLE_IR:-0}"
+# IR remote is ON by default. Skip it with: ENABLE_IR=0 ./install.sh
+ENABLE_IR="${ENABLE_IR:-1}"
 
 echo "======================================"
 echo " pikiosk installer (run-in-place)"
@@ -68,7 +68,7 @@ else
   echo "  Copy your ProtonVPN WireGuard config to config/wireguard.conf and re-run."
 fi
 
-# ── 7. IR remote (opt-in: gpio-ir overlay + keymap loader service) ───────────
+# ── 7. IR remote (default on: gpio-ir overlay + keymap loader service) ───────
 if [ "$ENABLE_IR" = "1" ]; then
   echo "[7/9] Setting up IR remote receiver..."
   BOOT_CFG=/boot/firmware/config.txt
@@ -84,7 +84,7 @@ if [ "$ENABLE_IR" = "1" ]; then
   sudo systemctl daemon-reload
   sudo systemctl enable pikiosk-ir.service > /dev/null 2>&1 || true
 else
-  echo "[7/9] IR remote disabled (set ENABLE_IR=1 to enable). Skipping."
+  echo "[7/9] IR remote skipped (ENABLE_IR=0)."
 fi
 
 # ── 8. Wire autostart to the clone (run-in-place) ────────────────────────────
