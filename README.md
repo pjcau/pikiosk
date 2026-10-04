@@ -248,7 +248,7 @@ keys move focus between links/buttons by on-screen position:
 |---|---|---|
 | Up / Down / Left / Right | `KEY_UP/DOWN/LEFT/RIGHT` | move focus spatially |
 | OK | `KEY_ENTER` | activate the focused element |
-| Back | `KEY_BACK` | go back in history |
+| Back | `KEY_F9` | go back in history (via labwc, see below) |
 
 Chromium's default focus outline is a thin line that's hard to see from the sofa, so
 `launch-kiosk.sh` also loads `kiosk/focus-ring/` (`--load-extension`): a local
@@ -256,10 +256,12 @@ extension whose CSS draws a thick yellow outline with a dark halo around the foc
 element on every page. Tweak thickness/colour in `kiosk/focus-ring/focus.css`, then
 `./scripts/kiosk.sh restart`.
 
-**Back button:** Chromium on Wayland doesn't treat `KEY_BACK` (`XF86Back`) as
-"history back". `install.sh` (always, even with `ENABLE_IR=0`) installs `config/labwc-rc.xml` as
-`~/.config/labwc/rc.xml` (backing up any existing one to `rc.xml.bak`): labwc grabs
-`XF86Back` and types **Alt+Left** — Chromium's back shortcut — via `wtype`. After
+**Back button:** the remote's Back is mapped to **`KEY_F9`**, not `KEY_BACK`: on the
+Pi labwc swallows `XF86Back` before any keybind or app sees it (checked with `wev`),
+while F9 passes through like the arrows. `install.sh` (always, even with
+`ENABLE_IR=0`) installs `config/labwc-rc.xml` as `~/.config/labwc/rc.xml` (backing up
+any existing one to `rc.xml.bak`): labwc grabs `F9` (and `XF86Back`, for keyboards
+where it does arrive) and types **Alt+Left** — Chromium's back shortcut — via `wtype`. After
 changing it, apply with `labwc --reconfigure` (or `sudo systemctl restart lightdm`).
 
 **Apply remote changes in one go** (after editing the keymap, `labwc-rc.xml` or
