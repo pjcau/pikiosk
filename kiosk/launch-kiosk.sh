@@ -25,7 +25,8 @@ PORTAL_PORT="${PORTAL_PORT:-8080}"
 SETUP_TIMEOUT="${SETUP_TIMEOUT:-60}"
 SETUP_FLAG="${SETUP_FLAG:-/tmp/kiosk-wifi-setup}"
 
-URL_SITE="https://www.bbc.co.uk/iplayer/live/bbcone"
+# Target site: override with the URL_SITE env var (e.g. in ~/.config/labwc/environment).
+URL_SITE="${URL_SITE:-https://www.bbc.co.uk/iplayer/live/bbcone}"
 URL_VPN_ERROR="file://$SCRIPT_DIR/vpn-error.html"
 URL_TEMP_ERROR="file://$SCRIPT_DIR/temp-warning.html"
 URL_RECON="file://$SCRIPT_DIR/reconnecting.html"
