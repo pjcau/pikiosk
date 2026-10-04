@@ -224,10 +224,10 @@ grep HDMI /tmp/kiosk.log
 The kiosk can be driven with a **TV remote** (or any IR remote) via a cheap IR
 receiver module wired to the GPIO header — navigate the site like a smart TV.
 
-> **Opt-in — off by default.** `install.sh` does **not** set up the IR receiver
-> unless you enable it: `ENABLE_IR=1 ./install.sh`. Without that flag no overlay is
-> added and the `pikiosk-ir` service is not installed. To disable it on a Pi where
-> it was already set up, see **[Disabling the IR remote](#disabling-the-ir-remote)**.
+> **On by default.** `install.sh` sets up the IR receiver (overlay + `pikiosk-ir`
+> service) unless you skip it: `ENABLE_IR=0 ./install.sh`. Skipping only avoids
+> installing it — to disable it on a Pi where it was already set up, see
+> **[Disabling the IR remote](#disabling-the-ir-remote)**.
 
 **Wiring** (3 wires, Pi powered off):
 
@@ -257,7 +257,7 @@ element on every page. Tweak thickness/colour in `kiosk/focus-ring/focus.css`, t
 `./scripts/kiosk.sh restart`.
 
 **Back button:** Chromium on Wayland doesn't treat `KEY_BACK` (`XF86Back`) as
-"history back". `install.sh` (always, even without `ENABLE_IR`) installs `config/labwc-rc.xml` as
+"history back". `install.sh` (always, even with `ENABLE_IR=0`) installs `config/labwc-rc.xml` as
 `~/.config/labwc/rc.xml` (backing up any existing one to `rc.xml.bak`): labwc grabs
 `XF86Back` and types **Alt+Left** — Chromium's back shortcut — via `wtype`. After
 changing it, apply with `labwc --reconfigure` (or `sudo systemctl restart lightdm`).
@@ -289,12 +289,13 @@ Troubleshooting: nothing decoded → check the remote is really IR (its LED blin
 when seen through a phone camera) and that `pinctrl get 18` reads `hi` at rest
 (a `lo` means the module isn't powered / DAT isn't wired — a VCC↔DAT swap is the
 usual cause). `dtoverlay=gpio-ir,gpio_pin=18` must be in `/boot/firmware/config.txt`
-(added by `ENABLE_IR=1 ./install.sh`) and takes effect only after a reboot.
+(added by `install.sh`) and takes effect only after a reboot.
 
 ### Disabling the IR remote
 
-`install.sh` no longer sets up IR by default, but on a Pi where it was previously
-enabled you must undo the two pieces it left behind. Run **on the Pi**:
+Install without IR with `ENABLE_IR=0 ./install.sh`. On a Pi where it was already
+set up, that is not enough — you must undo the two pieces it left behind. Run **on
+the Pi**:
 
 ```bash
 # 1. Stop and disable the keymap loader service

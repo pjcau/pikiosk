@@ -75,15 +75,15 @@ Solo se la VPN resta giù **con uplink stabile** oltre la grace si passa a `vpn`
 
 ## Telecomando IR
 
-> **Opt-in, disattivato di default**: `install.sh` **non** configura l'IR a meno di
-> lanciarlo con `ENABLE_IR=1 ./install.sh`. Senza il flag non viene aggiunto l'overlay
-> né installato il service `pikiosk-ir`. Per spegnerlo su un Pi già configurato vedi
+> **Attivo di default**: `install.sh` configura l'IR (overlay + service `pikiosk-ir`)
+> a meno di lanciarlo con `ENABLE_IR=0 ./install.sh`, che salta solo l'installazione.
+> Per spegnerlo su un Pi già configurato vedi
 > la sezione *Disabling the IR remote* nel README (disable del service + commento
 > dell'overlay + reboot).
 
 Il kiosk è pilotabile con un **telecomando TV a infrarossi** tramite un modulo
 ricevitore IR cablato su **GPIO18** (pin fisico 12; VCC su 3.3V — **non 5V** — GND su
-pin 6), **se abilitato** (`ENABLE_IR=1`). Catena, tutta **in-kernel, senza demoni**:
+pin 6), attivo di default (`ENABLE_IR=0` per saltarlo). Catena, tutta **in-kernel, senza demoni**:
 
 1. Overlay **`gpio-ir`** (`dtoverlay=gpio-ir,gpio_pin=18` in `/boot/firmware/config.txt`,
    aggiunto da `install.sh`, attivo dopo reboot) → il kernel decodifica l'IR.
@@ -103,7 +103,7 @@ pin 6), **se abilitato** (`ENABLE_IR=1`). Catena, tutta **in-kernel, senza demon
    Spessore/colore in `focus.css`; si applica con `./scripts/kiosk.sh restart`.
 6. **Back**: Chromium su Wayland ignora `KEY_BACK` (`XF86Back`) come "indietro", e un
    content script non lo riceve. Quindi lo gestisce **labwc**: `config/labwc-rc.xml`
-   (installato **sempre** da `install.sh`, anche senza `ENABLE_IR`, in `~/.config/labwc/rc.xml`, backup
+   (installato **sempre** da `install.sh`, anche con `ENABLE_IR=0`, in `~/.config/labwc/rc.xml`, backup
    dell'esistente in `.bak`) lega `XF86Back` a `wtype -M alt -k Left -m alt`, cioè
    **Alt+Sinistra** = indietro di Chromium. Si applica con `labwc --reconfigure`.
 
