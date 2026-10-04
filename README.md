@@ -249,6 +249,13 @@ keys move focus between links/buttons by on-screen position:
 | Up / Down / Left / Right | `KEY_UP/DOWN/LEFT/RIGHT` | move focus spatially |
 | OK | `KEY_ENTER` | activate the focused element |
 | Back | `KEY_BACK` | go back in history (handled natively by Chromium) |
+| Play / Pause | `KEY_PLAYPAUSE` | toggle playback of the video (no focus needed) |
+| Stop | `KEY_STOPCD` | stop playback |
+| ⏩ / ⏪ | `KEY_NEXTSONG` / `KEY_PREVIOUSSONG` | next/previous — only if the site supports it |
+
+Video players usually live in a cross-origin iframe whose custom controls spatial
+navigation can't reach. The media buttons avoid the problem: Chromium applies media
+keys to the playing video directly, wherever the focus is.
 
 **Boot order matters:** `pikiosk-ir.service` runs `Before=display-manager.service`.
 labwc (via libinput/libevdev) remembers which keys the IR device advertises when it

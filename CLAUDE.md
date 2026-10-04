@@ -21,7 +21,7 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `kiosk/focus-ring/` | Estensione Chromium locale (bordo di focus grande). **Non attiva**: Chromium 154 ignora `--load-extension` |
 | `config/labwc-rc.xml` | `rc.xml` di labwc **senza keybind** (Back deve arrivare a Chromium); sovrascrive la vecchia versione col keybind `wtype` |
 | `kiosk/ir-remote.sh` | Carica la keymap IR sul ricevitore gpio-ir (trova il device per driver, non per `rcN` fisso); girato al boot dal service `pikiosk-ir` |
-| `config/ir-keymap.toml` | Scancode del telecomando (NEC) → tasti standard (`KEY_UP/…/ENTER/BACK`) |
+| `config/ir-keymap.toml` | Scancode del telecomando (NEC) → tasti standard (`KEY_UP/…/ENTER/BACK` + tasti media `KEY_PLAYPAUSE/STOPCD/NEXTSONG/PREVIOUSSONG`) |
 | `config/pikiosk-ir.service` | Unit systemd che lancia `ir-remote.sh` al boot (`__REPO_DIR__` sostituito da install.sh) |
 | `config/labwc-autostart` | Autostart labwc (VNC + kiosk); `__REPO_DIR__` sostituito da install.sh |
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
@@ -97,6 +97,11 @@ pin 6), attivo di default (`ENABLE_IR=0` per saltarlo). Catena, tutta **in-kerne
 4. Chromium è lanciato con **`--enable-spatial-navigation`**: le frecce spostano il
    focus tra link/pulsanti per posizione a schermo, OK (`ENTER`) attiva, Back
    (`KEY_BACK` → `XF86Back`) torna indietro nella cronologia, gestito da Chromium.
+   **Tasti media** (Play/Pausa → `KEY_PLAYPAUSE`, Stop → `KEY_STOPCD`, ⏩/⏪ →
+   `KEY_NEXTSONG/PREVIOUSSONG`): pilotano il player **senza focus**. Serve perché i
+   player stanno in iframe cross-origin con controlli non raggiungibili dalla
+   navigazione spaziale. ⏩/⏪ funzionano solo se il sito registra next/previous
+   nella Media Session.
 5. **Ordine di avvio (IMPORTANTE)**: `pikiosk-ir.service` gira **`Before=display-manager`**.
    labwc (libinput/libevdev) memorizza i tasti che il ricevitore dichiara quando lo
    apre e **scarta tutti gli altri**. Se la keymap si carica dopo l'avvio di labwc
