@@ -5,10 +5,11 @@
 # them to Chromium (launched with --enable-spatial-navigation), so the TV remote
 # drives the kiosk like a smart TV: arrows move focus, OK activates, Back goes
 # back in the browser history.
+# KEY_BACK (XF86Back) is handled natively by Chromium as "history back".
 #
-# Back is sent as KEY_F9, not KEY_BACK: on the Pi labwc swallows XF86Back before
-# any keybind or app sees it. F9 passes through like the arrows; labwc's rc.xml
-# (config/labwc-rc.xml) turns it into Alt+Left = Chromium "back".
+# NB: labwc only sees the keys listed here if this keymap is loaded BEFORE the
+# graphical session starts (pikiosk-ir.service runs Before=display-manager).
+# After editing, apply with ./scripts/apply-remote.sh (restarts the session).
 #
 # To re-capture the scancodes (they are specific to THIS remote):
 #   sudo ir-keytable -s <rcN> -c -p all -t     # press each button, note scancode
@@ -24,4 +25,4 @@ protocol = "nec"
 0x407 = "KEY_LEFT"
 0x406 = "KEY_RIGHT"
 0x444 = "KEY_ENTER"
-0x428 = "KEY_F9"
+0x428 = "KEY_BACK"
