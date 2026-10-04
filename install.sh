@@ -39,7 +39,7 @@ sudo apt install -y \
   wireguard resolvconf \
   git curl \
   python3 network-manager \
-  ir-keytable wtype
+  ir-keytable
 
 # ── 3. User groups ────────────────────────────────────────────────────────────
 echo "[3/8] Adding user to groups..."
@@ -102,16 +102,16 @@ sed "s|__REPO_DIR__|${REPO_DIR}|g" \
   "${REPO_DIR}/config/labwc-autostart" > "${HOME_DIR}/.config/labwc/autostart"
 chmod +x "${HOME_DIR}/.config/labwc/autostart"
 
-# labwc keybind: Back key (IR remote or keyboard, XF86Back) → Alt+Left = Chromium
-# history back. Always installed: harmless without a remote, and avoids a plain
-# re-run of install.sh leaving Back broken.
+# labwc rc.xml with no custom keybinds, so the remote's Back (F9) reaches
+# Chromium. Always installed: it also overwrites an older pikiosk rc.xml that
+# bound F9 to wtype and swallowed the key.
 LABWC_RC="${HOME_DIR}/.config/labwc/rc.xml"
 if [ -f "$LABWC_RC" ] && ! cmp -s "$LABWC_RC" "${REPO_DIR}/config/labwc-rc.xml"; then
   cp "$LABWC_RC" "${LABWC_RC}.bak"
   echo "  Existing labwc rc.xml backed up to ${LABWC_RC}.bak"
 fi
 cp "${REPO_DIR}/config/labwc-rc.xml" "$LABWC_RC"
-echo "  labwc Back-key binding installed (Back → Alt+Left)."
+echo "  labwc rc.xml installed (no keybinds: Back/F9 goes to Chromium)."
 
 # ── 9. Done ───────────────────────────────────────────────────────────────────
 echo "[9/9] Done!"

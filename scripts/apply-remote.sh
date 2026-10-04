@@ -2,28 +2,20 @@
 # apply-remote.sh — Applica le modifiche al telecomando IR senza rilanciare install.sh
 # né riavviare il Pi.
 #
-# Uso: ./apply-remote.sh            → applica keymap, tasti labwc e bordo di focus
+# Uso: ./apply-remote.sh            → applica keymap, rc.xml di labwc ed estensione
 #      ./apply-remote.sh --no-kiosk → come sopra ma senza riavviare il kiosk
 #
 # Cosa applica (dopo aver modificato i file nel clone o fatto git pull):
 #   config/ir-keymap.toml   → scancode → tasti     (restart del service pikiosk-ir)
-#   config/labwc-rc.xml     → azioni dei tasti     (es. Back → Alt+Sinistra; reload labwc)
-#   kiosk/focus-ring/       → bordo di focus       (riavvio del kiosk)
+#   config/labwc-rc.xml     → config labwc         (senza keybind: F9 deve arrivare a Chromium)
+#   kiosk/focus-ring/       → bordo di focus + Back (F9 → history.back(); riavvio del kiosk)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../pikiosk/scripts
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"                     # .../pikiosk
 LABWC_RC="$HOME/.config/labwc/rc.xml"
 
-# 1. wtype serve al keybind Back → Alt+Sinistra
-if ! command -v wtype >/dev/null; then
-  echo "[1/4] Installo wtype..."
-  sudo apt install -y wtype
-else
-  echo "[1/4] wtype già presente."
-fi
-
-# 2. Keymap del telecomando (scancode → KEY_*)
-echo "[2/4] Ricarico la keymap IR (pikiosk-ir)..."
+# 1. Keymap del telecomando (scancode → KEY_*)
+echo "[1/3] Ricarico la keymap IR (pikiosk-ir)..."
 if systemctl list-unit-files pikiosk-ir.service >/dev/null 2>&1 \
    && systemctl is-enabled pikiosk-ir.service >/dev/null 2>&1; then
   sudo systemctl restart pikiosk-ir.service
@@ -32,8 +24,8 @@ else
   echo "  service pikiosk-ir non installato: lancia prima ./install.sh"
 fi
 
-# 3. Azioni dei tasti in labwc (rc.xml), con backup se diverso
-echo "[3/4] Aggiorno le azioni dei tasti in labwc..."
+# 2. rc.xml di labwc (senza keybind), con backup se diverso
+echo "[2/3] Aggiorno la config di labwc..."
 mkdir -p "$(dirname "$LABWC_RC")"
 if [ -f "$LABWC_RC" ] && ! cmp -s "$LABWC_RC" "$REPO_DIR/config/labwc-rc.xml"; then
   cp "$LABWC_RC" "$LABWC_RC.bak"
@@ -47,11 +39,11 @@ else
   echo "  labwc non in esecuzione: verrà applicato al prossimo avvio."
 fi
 
-# 4. Bordo di focus (estensione Chromium): serve riavviare il kiosk
+# 3. Estensione Chromium (bordo di focus + Back): serve riavviare il kiosk
 if [ "$1" = "--no-kiosk" ]; then
-  echo "[4/4] Kiosk non riavviato (--no-kiosk)."
+  echo "[3/3] Kiosk non riavviato (--no-kiosk)."
 else
-  echo "[4/4] Riavvio il kiosk..."
+  echo "[3/3] Riavvio il kiosk..."
   "$SCRIPT_DIR/kiosk.sh" restart
 fi
 
