@@ -3,11 +3,10 @@
   labwc rc.xml for pikiosk — installed to ~/.config/labwc/rc.xml by install.sh
   (always) and by scripts/apply-remote.sh.
 
-  Intentionally has no custom keybinds: the remote's Back key (sent as F9, see
-  config/ir-keymap.toml) must reach Chromium, where the focus-ring extension
-  turns it into history.back(). An earlier version bound F9/XF86Back to
-  "wtype Alt+Left" here, but wtype doesn't deliver keys on the Pi — installing
-  this file overwrites that binding, which would otherwise swallow F9.
+  Intentionally has no custom keybinds: the remote's Back key (KEY_BACK =
+  XF86Back) must reach Chromium, which handles it as "history back". An earlier
+  version bound F9/XF86Back to "wtype Alt+Left" here; installing this file
+  overwrites that binding, which would otherwise swallow the key.
 -->
 <labwc_config>
   <keyboard>
