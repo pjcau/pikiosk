@@ -3,13 +3,17 @@
   labwc rc.xml for pikiosk — installed to ~/.config/labwc/rc.xml by install.sh
   (always) and by scripts/apply-remote.sh.
 
-  Back key of the IR remote: the kernel emits KEY_BACK (XF86Back), but Chromium on
-  Wayland does not treat it as "history back". labwc grabs it here and types
-  Alt+Left (Chromium's standard back shortcut) into the focused window via wtype.
+  Back key of the IR remote: config/ir-keymap.toml sends it as F9 (XF86Back gets
+  swallowed by labwc on the Pi and never reaches keybinds/apps). labwc grabs F9
+  here and types Alt+Left (Chromium's standard back shortcut) via wtype.
+  XF86Back is kept for real keyboards/remotes where it does come through.
 -->
 <labwc_config>
   <keyboard>
     <default />
+    <keybind key="F9">
+      <action name="Execute" command="wtype -M alt -k Left -m alt" />
+    </keybind>
     <keybind key="XF86Back">
       <action name="Execute" command="wtype -M alt -k Left -m alt" />
     </keybind>
