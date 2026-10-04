@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "pikiosk focus ring",
+  "version": "1.0",
+  "description": "Bordo di focus grande e ben visibile per la navigazione col telecomando IR.",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["focus.css"],
+      "all_frames": true,
+      "run_at": "document_start"
+    }
+  ]
+}

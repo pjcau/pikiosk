@@ -1,0 +1,11 @@
+/* Bordo di focus spesso e ad alto contrasto: con la navigazione spaziale
+   (frecce del telecomando) si vede subito quale elemento è selezionato.
+   Giallo + alone scuro così resta visibile sia su sfondi chiari che scuri. */
+*:focus,
+*:focus-visible {
+  outline: 6px solid #ffd400 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 12px rgba(0, 0, 0, 0.65) !important;
+  border-radius: 6px !important;
+  transition: none !important;
+}
