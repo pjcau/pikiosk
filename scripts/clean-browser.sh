@@ -5,7 +5,8 @@
 # Uso: ./clean-browser.sh          → cancella cache + cookie (dovrai rifare il login)
 #      ./clean-browser.sh --all    → cancella l'intero profilo Chromium (reset totale)
 #
-# Il kiosk usa il profilo di default (~/.config/chromium) e nessuna estensione.
+# Il kiosk usa il profilo di default (~/.config/chromium). L'unica estensione
+# (kiosk/focus-ring) è caricata da flag, non dal profilo: non viene toccata.
 
 set -e
 

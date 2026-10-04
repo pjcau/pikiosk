@@ -176,6 +176,7 @@ launch_chromium() {
     --check-for-update-interval=31536000 \
     --autoplay-policy=no-user-gesture-required \
     --enable-spatial-navigation \
+    --load-extension="$SCRIPT_DIR/focus-ring" \
     "$url" &
 }
 
