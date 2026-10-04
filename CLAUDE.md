@@ -18,8 +18,8 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`recon`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
 | `URL_SITE` (env) | Sito mostrato dal kiosk; default BBC One iPlayer. Permanente in `~/.config/labwc/environment` (letto anche da `kiosk.sh start`); una tantum `URL_SITE=... ./scripts/kiosk.sh restart` |
 | `kiosk/*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
-| `kiosk/focus-ring/` | Estensione Chromium locale: bordo di focus grande e visibile per il telecomando (`focus.css`) |
-| `config/labwc-rc.xml` | Keybind labwc: Back del telecomando (`F9`, più `XF86Back` per tastiere vere) → Alt+Sinistra = indietro in Chromium (via `wtype`) |
+| `kiosk/focus-ring/` | Estensione Chromium locale per il telecomando: bordo di focus grande (`focus.css`) + Back/F9 = pagina precedente (`back.js`) |
+| `config/labwc-rc.xml` | `rc.xml` di labwc **senza keybind** (F9 deve arrivare a Chromium); sovrascrive la vecchia versione col keybind `wtype` |
 | `kiosk/ir-remote.sh` | Carica la keymap IR sul ricevitore gpio-ir (trova il device per driver, non per `rcN` fisso); girato al boot dal service `pikiosk-ir` |
 | `config/ir-keymap.toml` | Scancode del telecomando (NEC) → tasti standard (`KEY_UP/…/ENTER`, Back = `KEY_F9`) |
 | `config/pikiosk-ir.service` | Unit systemd che lancia `ir-remote.sh` al boot (`__REPO_DIR__` sostituito da install.sh) |
@@ -27,7 +27,7 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
 | `scripts/monitor.sh` | Monitor live di potenza e temperatura |
 | `scripts/clean-browser.sh` | Pulisce cache/cookie di Chromium (`--all` = profilo intero) e riavvia la sessione (`lightdm`) |
-| `scripts/apply-remote.sh` | Applica le modifiche al telecomando senza reboot: `wtype`, restart `pikiosk-ir` (keymap), copia `labwc-rc.xml` + `pkill -HUP labwc`, riavvio kiosk (`--no-kiosk` per saltarlo) |
+| `scripts/apply-remote.sh` | Applica le modifiche al telecomando senza reboot: restart `pikiosk-ir` (keymap), copia `labwc-rc.xml` + `pkill -HUP labwc`, riavvio kiosk (`--no-kiosk` per saltarlo) |
 | `scripts/kiosk.sh` | `start/stop/restart/status` dell'app kiosk senza reboot (anche da SSH: setta le variabili Wayland); lo `stop` spegne anche portal e hotspot |
 | `wifi-portal/` | Setup WiFi offline (hotspot + pagina) — vedi sezione dedicata |
 
@@ -104,10 +104,13 @@ pin 6), attivo di default (`ENABLE_IR=0` per saltarlo). Catena, tutta **in-kerne
 6. **Back**: il tasto Back è mappato a **`KEY_F9`, non `KEY_BACK`**. Verificato con
    `wev` sul Pi: `KEY_BACK` (`XF86Back`) arriva a libinput ma labwc lo scarta, non
    raggiunge né i keybind né le app (le frecce invece passano). F9 passa normalmente.
-   Lo gestisce **labwc**: `config/labwc-rc.xml` (installato **sempre** da `install.sh`,
-   anche con `ENABLE_IR=0`, in `~/.config/labwc/rc.xml`, backup dell'esistente in
-   `.bak`) lega `F9` (e `XF86Back`, per tastiere dove arriva) a
-   `wtype -M alt -k Left -m alt`, cioè **Alt+Sinistra** = indietro di Chromium.
+   F9 arriva a Chromium e lo gestisce l'estensione: **`kiosk/focus-ring/back.js`**
+   intercetta `F9` (e `BrowserBack`) e chiama `history.back()`.
+   **Non usare `wtype`**: provato (keybind labwc F9 → `wtype -M alt -k Left -m alt`)
+   ma sul Pi alle app arrivano solo Ctrl/Alt, mai il tasto Sinistra. Per questo
+   `config/labwc-rc.xml` (installato **sempre** da `install.sh` in
+   `~/.config/labwc/rc.xml`, backup in `.bak`) ora **non ha keybind**: serve solo a
+   sovrascrivere la vecchia versione che intercettava F9.
    Si applica con `./scripts/apply-remote.sh`. Diagnosi tasti: `wev` da SSH
    (`WAYLAND_DISPLAY=wayland-0`, pipe con `stdbuf -oL`).
 

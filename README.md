@@ -130,12 +130,12 @@ pikiosk/
 ├── kiosk/
 │   ├── launch-kiosk.sh     # VPN + temp check, launches Chromium
 │   ├── ir-remote.sh        # Loads the IR keymap onto the gpio-ir receiver
-│   ├── focus-ring/         # Tiny Chromium extension: thick, high-contrast focus outline
+│   ├── focus-ring/         # Tiny Chromium extension: thick focus outline + Back key
 │   ├── vpn-error.html      # Shown when VPN is down
 │   └── temp-warning.html   # Shown when temperature >= 80°C
 ├── config/
 │   ├── labwc-autostart     # ~/.config/labwc/autostart (points at the clone)
-│   ├── labwc-rc.xml        # ~/.config/labwc/rc.xml: remote Back → Alt+Left (IR only)
+│   ├── labwc-rc.xml        # ~/.config/labwc/rc.xml (no keybinds, lets F9 reach Chromium)
 │   ├── lightdm-autologin.conf  # /etc/lightdm/lightdm.conf.d/
 │   ├── drm.conf            # /etc/modprobe.d/drm.conf
 │   ├── ir-keymap.toml      # TV-remote scancodes → key events (NEC)
@@ -258,17 +258,19 @@ element on every page. Tweak thickness/colour in `kiosk/focus-ring/focus.css`, t
 
 **Back button:** the remote's Back is mapped to **`KEY_F9`**, not `KEY_BACK`: on the
 Pi labwc swallows `XF86Back` before any keybind or app sees it (checked with `wev`),
-while F9 passes through like the arrows. `install.sh` (always, even with
-`ENABLE_IR=0`) installs `config/labwc-rc.xml` as `~/.config/labwc/rc.xml` (backing up
-any existing one to `rc.xml.bak`): labwc grabs `F9` (and `XF86Back`, for keyboards
-where it does arrive) and types **Alt+Left** — Chromium's back shortcut — via `wtype`. After
-changing it, apply with `labwc --reconfigure` (or `sudo systemctl restart lightdm`).
+while F9 passes through like the arrows. F9 reaches Chromium, where the focus-ring
+extension's `back.js` catches it and calls `history.back()`.
+
+`config/labwc-rc.xml` (installed by `install.sh` as `~/.config/labwc/rc.xml`, any
+existing one backed up to `rc.xml.bak`) deliberately has **no keybinds**: an earlier
+version bound F9 to `wtype` Alt+Left, but `wtype` doesn't deliver keys on the Pi and
+the binding swallowed F9 — installing the new file removes it.
 
 **Apply remote changes in one go** (after editing the keymap, `labwc-rc.xml` or
 `focus.css`, or after a `git pull`) — no reboot, no full `install.sh`:
 
 ```bash
-./scripts/apply-remote.sh            # installs wtype if missing, restarts pikiosk-ir,
+./scripts/apply-remote.sh            # restarts pikiosk-ir (keymap),
                                      # copies rc.xml (backup .bak) + reloads labwc,
                                      # restarts the kiosk
 ./scripts/apply-remote.sh --no-kiosk # same, without restarting the kiosk
