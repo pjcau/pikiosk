@@ -6,6 +6,10 @@
 # drives the kiosk like a smart TV: arrows move focus, OK activates, Back goes
 # back in the browser history.
 #
+# Back is sent as KEY_F9, not KEY_BACK: on the Pi labwc swallows XF86Back before
+# any keybind or app sees it. F9 passes through like the arrows; labwc's rc.xml
+# (config/labwc-rc.xml) turns it into Alt+Left = Chromium "back".
+#
 # To re-capture the scancodes (they are specific to THIS remote):
 #   sudo ir-keytable -s <rcN> -c -p all -t     # press each button, note scancode
 # then edit the values below and: sudo systemctl restart pikiosk-ir
@@ -20,4 +24,4 @@ protocol = "nec"
 0x407 = "KEY_LEFT"
 0x406 = "KEY_RIGHT"
 0x444 = "KEY_ENTER"
-0x428 = "KEY_BACK"
+0x428 = "KEY_F9"
