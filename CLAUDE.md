@@ -103,7 +103,7 @@ pin 6), **se abilitato** (`ENABLE_IR=1`). Catena, tutta **in-kernel, senza demon
    Spessore/colore in `focus.css`; si applica con `./scripts/kiosk.sh restart`.
 6. **Back**: Chromium su Wayland ignora `KEY_BACK` (`XF86Back`) come "indietro", e un
    content script non lo riceve. Quindi lo gestisce **labwc**: `config/labwc-rc.xml`
-   (installato da `install.sh` con `ENABLE_IR=1` in `~/.config/labwc/rc.xml`, backup
+   (installato **sempre** da `install.sh`, anche senza `ENABLE_IR`, in `~/.config/labwc/rc.xml`, backup
    dell'esistente in `.bak`) lega `XF86Back` a `wtype -M alt -k Left -m alt`, cioè
    **Alt+Sinistra** = indietro di Chromium. Si applica con `labwc --reconfigure`.
 

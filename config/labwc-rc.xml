@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--
   labwc rc.xml for pikiosk — installed to ~/.config/labwc/rc.xml by install.sh
-  (with ENABLE_IR=1).
+  (always) and by scripts/apply-remote.sh.
 
   Back key of the IR remote: the kernel emits KEY_BACK (XF86Back), but Chromium on
   Wayland does not treat it as "history back". labwc grabs it here and types

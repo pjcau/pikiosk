@@ -257,7 +257,7 @@ element on every page. Tweak thickness/colour in `kiosk/focus-ring/focus.css`, t
 `./scripts/kiosk.sh restart`.
 
 **Back button:** Chromium on Wayland doesn't treat `KEY_BACK` (`XF86Back`) as
-"history back". `install.sh` (with `ENABLE_IR=1`) installs `config/labwc-rc.xml` as
+"history back". `install.sh` (always, even without `ENABLE_IR`) installs `config/labwc-rc.xml` as
 `~/.config/labwc/rc.xml` (backing up any existing one to `rc.xml.bak`): labwc grabs
 `XF86Back` and types **Alt+Left** — Chromium's back shortcut — via `wtype`. After
 changing it, apply with `labwc --reconfigure` (or `sudo systemctl restart lightdm`).
