@@ -1,10 +1,16 @@
 # pikiosk IR keymap loader. Installed to /etc/systemd/system/ by install.sh,
 # with __REPO_DIR__ replaced by the clone path (run-in-place). Loads the NEC
 # keymap onto the gpio-ir receiver at boot; `git pull` updates the keymap, then
-# `sudo systemctl restart pikiosk-ir` re-applies it.
+# `./scripts/apply-remote.sh` re-applies it.
+#
+# Must run BEFORE the display manager: labwc (libinput/libevdev) remembers which
+# keys an input device advertises when it opens it, and drops events for any
+# other key. If the keymap is loaded after labwc started, only the keys of the
+# kernel's default map (arrows, Enter) get through — Back is silently dropped.
 [Unit]
 Description=pikiosk IR remote keymap loader
-After=multi-user.target
+After=systemd-modules-load.service systemd-udevd.service
+Before=display-manager.service
 
 [Service]
 Type=oneshot
