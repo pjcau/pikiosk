@@ -24,6 +24,7 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
 | `scripts/monitor.sh` | Monitor live di potenza e temperatura |
 | `scripts/clean-browser.sh` | Pulisce cache/cookie di Chromium (`--all` = profilo intero) e riavvia la sessione (`lightdm`) |
+| `scripts/kiosk.sh` | `start/stop/restart/status` dell'app kiosk senza reboot (anche da SSH: setta le variabili Wayland); lo `stop` spegne anche portal e hotspot |
 | `wifi-portal/` | Setup WiFi offline (hotspot + pagina) — vedi sezione dedicata |
 
 > **Struttura a cartelle** (`kiosk/ config/ scripts/ wifi-portal/`): repo, README e

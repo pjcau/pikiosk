@@ -141,7 +141,8 @@ pikiosk/
 │   └── wireguard-template.conf  # Template for /etc/wireguard/protonvpn.conf
 ├── scripts/
 │   ├── monitor.sh          # Live power and temperature monitor
-│   └── clean-browser.sh    # Clear Chromium cache/cookies and restart the kiosk
+│   ├── clean-browser.sh    # Clear Chromium cache/cookies and restart the kiosk
+│   └── kiosk.sh            # Start/stop/restart the kiosk app without rebooting
 └── wifi-portal/            # Offline WiFi setup (hotspot + captive page)
     ├── server.py           # HTTP backend driving nmcli
     ├── wifi-setup.html     # QR auto-join + interactive network list
@@ -295,6 +296,12 @@ curl ifconfig.me
 
 # Check temperature only
 vcgencmd measure_temp
+
+# Open / close the kiosk app without rebooting (works over SSH; VNC untouched)
+./scripts/kiosk.sh stop      # also stops the WiFi portal and setup hotspot
+./scripts/kiosk.sh start
+./scripts/kiosk.sh restart   # e.g. after git pull
+./scripts/kiosk.sh status
 
 # Site treats the kiosk as a bot / broken session: clear Chromium cache + cookies
 # and restart the kiosk (you'll need to log in again; --all wipes the whole profile)
