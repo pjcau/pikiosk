@@ -1,11 +1,17 @@
 # pikiosk IR remote keymap — TV remote, NEC protocol.
 #
-# Maps the 6 buttons captured with `ir-keytable -t` to standard Linux key events.
+# Maps the 11 buttons captured with `ir-keytable -t` to standard Linux key events.
 # The kernel rc-core driver emits these on the IR input device; labwc forwards
 # them to Chromium (launched with --enable-spatial-navigation), so the TV remote
 # drives the kiosk like a smart TV: arrows move focus, OK activates, Back goes
 # back in the browser history.
 # KEY_BACK (XF86Back) is handled natively by Chromium as "history back".
+#
+# Media buttons drive the video player WITHOUT needing focus (players usually sit
+# in a cross-origin iframe that spatial navigation can't enter): Chromium handles
+# media keys itself on the active media session. Play and Pause both toggle.
+# Fast-forward/rewind are sent as next/previous track: they only work if the site
+# registers those Media Session actions.
 #
 # NB: labwc only sees the keys listed here if this keymap is loaded BEFORE the
 # graphical session starts (pikiosk-ir.service runs Before=display-manager).
@@ -26,3 +32,8 @@ protocol = "nec"
 0x406 = "KEY_RIGHT"
 0x444 = "KEY_ENTER"
 0x428 = "KEY_BACK"
+0x463 = "KEY_PLAYPAUSE"     # Play
+0x461 = "KEY_PLAYPAUSE"     # Pause
+0x471 = "KEY_STOPCD"        # Stop
+0x439 = "KEY_NEXTSONG"      # Fast-forward >>
+0x421 = "KEY_PREVIOUSSONG"  # Rewind <<
