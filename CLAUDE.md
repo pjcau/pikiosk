@@ -23,6 +23,7 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `config/labwc-autostart` | Autostart labwc (VNC + kiosk); `__REPO_DIR__` sostituito da install.sh |
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
 | `scripts/monitor.sh` | Monitor live di potenza e temperatura |
+| `scripts/clean-browser.sh` | Pulisce cache/cookie di Chromium (`--all` = profilo intero) e riavvia la sessione (`lightdm`) |
 | `wifi-portal/` | Setup WiFi offline (hotspot + pagina) — vedi sezione dedicata |
 
 > **Struttura a cartelle** (`kiosk/ config/ scripts/ wifi-portal/`): repo, README e

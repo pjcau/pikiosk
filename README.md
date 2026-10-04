@@ -140,7 +140,8 @@ pikiosk/
 │   ├── pikiosk-ir.service  # systemd unit that loads the IR keymap at boot
 │   └── wireguard-template.conf  # Template for /etc/wireguard/protonvpn.conf
 ├── scripts/
-│   └── monitor.sh          # Live power and temperature monitor
+│   ├── monitor.sh          # Live power and temperature monitor
+│   └── clean-browser.sh    # Clear Chromium cache/cookies and restart the kiosk
 └── wifi-portal/            # Offline WiFi setup (hotspot + captive page)
     ├── server.py           # HTTP backend driving nmcli
     ├── wifi-setup.html     # QR auto-join + interactive network list
@@ -294,6 +295,10 @@ curl ifconfig.me
 
 # Check temperature only
 vcgencmd measure_temp
+
+# Site treats the kiosk as a bot / broken session: clear Chromium cache + cookies
+# and restart the kiosk (you'll need to log in again; --all wipes the whole profile)
+./scripts/clean-browser.sh
 
 # View kiosk log
 tail -f /tmp/kiosk.log
