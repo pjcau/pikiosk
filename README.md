@@ -188,7 +188,20 @@ cd pikiosk && git pull    # then reboot, or restart labwc
 
 ## Changing the target site
 
-Edit `kiosk/launch-kiosk.sh` and update the `URL_SITE` variable at the top.
+The site is read from the **`URL_SITE`** environment variable; if it's not set the
+kiosk defaults to BBC One live on iPlayer (`https://www.bbc.co.uk/iplayer/live/bbcone`).
+
+To change it permanently, put it in labwc's environment file (labwc exports it to the
+autostart, so `launch-kiosk.sh` sees it at boot):
+
+```bash
+echo 'URL_SITE=https://example.com' >> ~/.config/labwc/environment
+./scripts/kiosk.sh restart     # or reboot
+```
+
+`./scripts/kiosk.sh start|restart` loads the same file, so starting from SSH behaves
+like the autostart. For a one-off test without touching the file:
+`URL_SITE=https://example.com ./scripts/kiosk.sh restart`.
 
 ## HDMI audio
 

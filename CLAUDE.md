@@ -16,6 +16,7 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 |---|---|
 | `install.sh` | Setup (run-in-place): installa solo i file `/etc` e aggancia l'autostart al clone |
 | `kiosk/launch-kiosk.sh` | Macchina a stati (`temp`>`setup`>`recon`>`vpn`>`ok`): VPN, temperatura, audio HDMI 100%, preferenza ethernet, avvio portal WiFi |
+| `URL_SITE` (env) | Sito mostrato dal kiosk; default BBC One iPlayer. Permanente in `~/.config/labwc/environment` (letto anche da `kiosk.sh start`); una tantum `URL_SITE=... ./scripts/kiosk.sh restart` |
 | `kiosk/*-error.html` / `temp-warning.html` | Pagine di errore mostrate dal kiosk |
 | `kiosk/focus-ring/` | Estensione Chromium locale: bordo di focus grande e visibile per il telecomando (`focus.css`) |
 | `config/labwc-rc.xml` | Keybind labwc: Back del telecomando (`XF86Back`) → Alt+Sinistra = indietro in Chromium (via `wtype`) |
