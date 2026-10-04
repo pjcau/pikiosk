@@ -130,7 +130,7 @@ pikiosk/
 ├── kiosk/
 │   ├── launch-kiosk.sh     # VPN + temp check, launches Chromium
 │   ├── ir-remote.sh        # Loads the IR keymap onto the gpio-ir receiver
-│   ├── focus-ring/         # Tiny Chromium extension: thick, high-contrast focus outline
+│   ├── focus-ring/         # Tiny Chromium extension: thick focus outline + Back key
 │   ├── vpn-error.html      # Shown when VPN is down
 │   └── temp-warning.html   # Shown when temperature >= 80°C
 ├── config/
@@ -239,7 +239,9 @@ Chromium's default focus outline is a thin line that's hard to see from the sofa
 `launch-kiosk.sh` also loads `kiosk/focus-ring/` (`--load-extension`): a local
 extension whose CSS draws a thick yellow outline with a dark halo around the focused
 element on every page. Tweak thickness/colour in `kiosk/focus-ring/focus.css`, then
-`./scripts/kiosk.sh restart`.
+`./scripts/kiosk.sh restart`. The same extension handles **Back**: on Linux/Wayland
+Chromium ignores `KEY_BACK` (`BrowserBack`), so `back.js` catches it and calls
+`history.back()` to return to the previous page.
 
 The default keymap uses the NEC scancodes of one specific remote. **Your remote is
 different** — re-capture its codes and edit `config/ir-keymap.toml`:
