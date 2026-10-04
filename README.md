@@ -144,7 +144,8 @@ pikiosk/
 ├── scripts/
 │   ├── monitor.sh          # Live power and temperature monitor
 │   ├── clean-browser.sh    # Clear Chromium cache/cookies and restart the kiosk
-│   └── kiosk.sh            # Start/stop/restart the kiosk app without rebooting
+│   ├── kiosk.sh            # Start/stop/restart the kiosk app without rebooting
+│   └── apply-remote.sh     # Apply IR remote changes (keymap, labwc keys, focus ring)
 └── wifi-portal/            # Offline WiFi setup (hotspot + captive page)
     ├── server.py           # HTTP backend driving nmcli
     ├── wifi-setup.html     # QR auto-join + interactive network list
@@ -247,6 +248,16 @@ element on every page. Tweak thickness/colour in `kiosk/focus-ring/focus.css`, t
 `~/.config/labwc/rc.xml` (backing up any existing one to `rc.xml.bak`): labwc grabs
 `XF86Back` and types **Alt+Left** — Chromium's back shortcut — via `wtype`. After
 changing it, apply with `labwc --reconfigure` (or `sudo systemctl restart lightdm`).
+
+**Apply remote changes in one go** (after editing the keymap, `labwc-rc.xml` or
+`focus.css`, or after a `git pull`) — no reboot, no full `install.sh`:
+
+```bash
+./scripts/apply-remote.sh            # installs wtype if missing, restarts pikiosk-ir,
+                                     # copies rc.xml (backup .bak) + reloads labwc,
+                                     # restarts the kiosk
+./scripts/apply-remote.sh --no-kiosk # same, without restarting the kiosk
+```
 
 The default keymap uses the NEC scancodes of one specific remote. **Your remote is
 different** — re-capture its codes and edit `config/ir-keymap.toml`:

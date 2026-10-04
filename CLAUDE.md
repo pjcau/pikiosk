@@ -26,6 +26,7 @@ temperatura ≥ 80°C, ed è controllabile da remoto via **VNC**. Dettagli nel R
 | `config/*.conf` | Config di LightDM, DRM, WireGuard |
 | `scripts/monitor.sh` | Monitor live di potenza e temperatura |
 | `scripts/clean-browser.sh` | Pulisce cache/cookie di Chromium (`--all` = profilo intero) e riavvia la sessione (`lightdm`) |
+| `scripts/apply-remote.sh` | Applica le modifiche al telecomando senza reboot: `wtype`, restart `pikiosk-ir` (keymap), copia `labwc-rc.xml` + `pkill -HUP labwc`, riavvio kiosk (`--no-kiosk` per saltarlo) |
 | `scripts/kiosk.sh` | `start/stop/restart/status` dell'app kiosk senza reboot (anche da SSH: setta le variabili Wayland); lo `stop` spegne anche portal e hotspot |
 | `wifi-portal/` | Setup WiFi offline (hotspot + pagina) — vedi sezione dedicata |
 
@@ -108,7 +109,8 @@ pin 6), **se abilitato** (`ENABLE_IR=1`). Catena, tutta **in-kernel, senza demon
 **Keymap specifica del telecomando**: gli scancode in `ir-keymap.toml` sono di *quel*
 telecomando. Per un altro telecomando: `sudo ir-keytable -s <rcN> -c -p all -t`, premi
 i tasti, annota gli scancode, aggiorna il `.toml`, poi `sudo systemctl restart pikiosk-ir`.
-Il `git pull` aggiorna keymap e script (run-in-place); il restart del service li ri-applica.
+Il `git pull` aggiorna keymap e script (run-in-place); `./scripts/apply-remote.sh` ri-applica
+keymap, azioni labwc e bordo di focus in un colpo solo.
 
 **Diagnosi**: `pinctrl get 18` deve dare `hi` a riposo (sensore alimentato e DAT
 connesso); `lo` = modulo non alimentato o DAT non cablato (spesso VCC↔DAT invertiti).
